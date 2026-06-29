@@ -13,8 +13,9 @@ services:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Bootstrap schemas/roles/RLS the way Terraform does in AWS.
-      - ./packages/db/sql/bootstrap.sql:/docker-entrypoint-initdb.d/00-bootstrap.sql:ro
+      # NB: `make db-migrate` runs sql/bootstrap.sql as its first step (see
+      # src/migrate.ts), so no initdb bind-mount is needed — this also avoids
+      # macOS Docker file-sharing restrictions on ~/Documents.
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U pilotage -d pilotage']
       interval: 5s
