@@ -1,0 +1,127 @@
+# Architecture
+
+This document is the source of truth for architectural decisions and the
+**cross-repo contract** with the companion data/Python repo. Keep it in sync
+with that repo's equivalent doc.
+
+## 1. Decisions (and why)
+
+| Concern | Choice | Rationale |
+|---|---|---|
+| Monorepo tooling | pnpm workspaces + Turborepo | Fast, cached builds; cheap |
+| Language | TypeScript end-to-end, strict | Shared types front↔back |
+| Frontend | React 18 + Vite, Tailwind + shadcn-style, TanStack Query/Router, i18next (FR default), Recharts, RHF + Zod; PWA | Matches design handoff; static hosting is cheap and scales |
+| Frontend hosting | S3 + CloudFront (static SPA) | Near-zero idle cost, global |
+| Backend | NestJS, one module per domain, behind an HTTP adapter so it runs on Lambda now (`@codegenie/serverless-express` + API Gateway HTTP API) and can move to ECS Fargate/App Runner later without rewrite | ERP structure; scale-to-zero for MVP cost; no Lambda lock-in |
+| ORM / DB access | Drizzle ORM (SQL-first) + RDS Proxy | Lambda+Postgres needs pooling; Drizzle keeps SQL explicit |
+| Database | Amazon RDS for PostgreSQL (shared with data repo) | One source of truth; relational fits an ERP |
+| Auth | Amazon Cognito user pool + app-level RBAC in DB | Managed, cheap, scales; custom roles/scopes in our schema |
+| Realtime | Polling (TanStack Query) + an SSE endpoint for dashboards at MVP; API Gateway WebSocket later (flag) | Avoids WS infra cost at MVP |
+| Async/eventing | SQS + Lambda for side-effects; EventBridge for scheduled jobs | Cheap, decoupled |
+| LLM | Mistral AI via official TS SDK, wrapped in a swappable `LlmService` | Provider abstraction; key in Secrets Manager |
+| Billing | Stripe (SaaS subscriptions) | Standard |
+| IaC | Terraform ≥ 1.7, S3 + DynamoDB remote state, workspace per env | Reproducible, per-env isolation |
+| CI/CD | GitHub Actions: lint → typecheck → test → build → `tf plan` (PR) / `apply` (main, gated) | Automated, OIDC to AWS |
+
+**Cost guardrails:** serverless/scale-to-zero by default; no always-on compute at
+MVP except RDS (`db.t4g.small`, single-AZ, gp3 in dev — parameterized for prod
+Multi-AZ); avoid NAT Gateway cost via VPC endpoints + a `fck-nat` instance in dev
+(managed NAT GW toggle in prod); CloudWatch Logs retention 14–30 days; tag
+everything (`project=pilotage`, `repo=app`, `env`, `module`). See
+[`docs/COSTS.md`](./docs/COSTS.md).
+
+## 2. Module boundary with the data repo
+
+- The app **reads** `ingest`/`analytics` (granted SELECT) and **writes** `core`.
+  The data repo writes `ingest`/`analytics`. Neither runs DDL on the other's schema.
+- **Commands to devices** (remote actions — Should) are written by the app into a
+  `core.device_command` queue that the data repo consumes and executes against
+  provider APIs, writing status back. **The app never talks to machine/payment
+  provider APIs directly.**
+
+## 3. Cross-repo contract
+
+One RDS instance, multiple Postgres schemas:
+
+| Schema | Owner (DDL) | This app's access |
+|---|---|---|
+| `core` | **app** (Drizzle migrations) | read/write |
+| `ingest` | data repo (Alembic) | SELECT only |
+| `analytics` | data repo (Alembic) | SELECT only |
+
+**DB roles** (created in the SQL bootstrap, run by Terraform):
+- `app_rw` — RW on `core`, SELECT on `ingest`/`analytics`. The API uses this. **Not `BYPASSRLS`.**
+- `data_rw` — RW on `ingest`/`analytics`, SELECT on agreed `core` reference views.
+
+**Shared reference data** the data repo joins against is exposed via stable,
+versioned views in `core`: `core.v_site`, `core.v_machine`, `core.v_tenant`,
+`core.v_price_effective`. Internal column changes must not break these.
+
+**Terraform outputs** this repo exports for the data repo to import:
+
+| Output | Meaning |
+|---|---|
+| `vpc_id` | Shared VPC |
+| `private_subnet_ids` | Private subnets (DB + compute) |
+| `db_security_group_id` | SG to attach data-repo compute to |
+| `db_proxy_endpoint` | RDS Proxy endpoint |
+| `db_secret_arn` | Secrets Manager ARN for DB creds |
+| `data_lake_kms_key_arn` | Shared KMS key (if data lake shared) |
+| `region` / `env` | `eu-west-3` / `dev`\|`staging`\|`prod` |
+
+**Deploy order:** app first (creates VPC/RDS/Cognito), then data (references them).
+
+**Conventions:** UTC `timestamptz`; money as integer **cents (bigint) + ISO
+currency** (never floats); **UUIDv7** for entity PKs (high-volume telemetry in
+`ingest` uses bigint identity); single region `eu-west-3` (Paris) for RGPD data
+residency; resource tags as above.
+
+## 4. Request lifecycle & tenancy
+
+1. API Gateway → Lambda (NestJS via serverless-express).
+2. `AuthGuard` verifies the Cognito JWT (or accepts the dev identity when
+   `AUTH_DEV_BYPASS=true`), resolves `user → tenant(s) → active scope`, and builds
+   a **request context** (`tenantId`, `userId`, `roles`, `scope`).
+3. A per-request DB session sets `app.current_tenant` / `app.current_user` so
+   **PostgreSQL Row-Level Security** filters every `core` row. The app role is not
+   `BYPASSRLS` — this is the hard guarantee of tenant isolation (EF-M12-01).
+4. `@RequirePermission('M2:reconcile')` guards check the RBAC matrix (roles &
+   permissions are seedable data, scope-aware: tenant / network / site / machine).
+5. Mutations write `core.audit_log`.
+
+## 5. Domain modules (MoSCoW)
+
+One NestJS module per domain. **MVP (Must)** is implemented; Should/Could are
+scaffolded behind feature flags with typed stubs.
+
+| Module | MVP (Must) | Should (V1) | Could (V2) |
+|---|---|---|---|
+| **M1** Machines/supervision | live status + history, machine CRUD, occupancy/uptime, SSE | remote actions via `device_command` | site map |
+| **M2** Recettes/monétique | revenue by site/machine/method, reconciliation read, cash + collect, refunds list | refund workflow | anti-fraud UI |
+| **M3** Client app/fidélité | — | app + pay + loyalty + notifications + white-label | referrals, in-app support |
+| **M4** Maintenance/GMAO | ticket model + auto-ticket from alarms, park registry | preventive plans, worklist, SLA, MTBF/MTTR | parts/stock, predictive |
+| **M5** Énergie/conformité | consumption + anomaly read, **OPERAT trajectory + report** | off-peak scheduling | CO₂/ESG |
+| **M6** Finances/compta | CA consolidation | TVA + **FEC export**, charges/margin, connectors | budgets, data room |
+| **M7** Pricing/yield | price grids read | time-slot pricing, promos, remote push | elasticity sim |
+| **M8** CRM/marketing | — | base + segmentation | campaigns, GBP/reviews |
+| **M9** Réseau | multi-site dashboard + benchmark read + RBAC by scope | standardization push, scheduled reports | royalties engine |
+| **M10** Stocks | — | — | consumables + reorder |
+| **M11** RH | — | — | planning/time-clock |
+| **M12** Admin/sécurité | multi-tenant, users/roles (RBAC), sites, connectors registry, audit, RGPD basics, Stripe billing | PRA/PCA, advanced audit | multi-currency/lang admin |
+
+Feature flags live in `@pilotage/shared` (`MODULE_FLAGS`) and are resolved per
+env + per tenant. The web hides flagged modules; the API returns `501`/stub
+responses for non-MVP endpoints.
+
+## 6. Packages
+
+- `@pilotage/shared` — enums, Zod DTOs, domain types, constants, typed errors,
+  feature-flag definitions. Imported by both web and api so the contract is
+  single-sourced.
+- `@pilotage/db` — Drizzle `core` schema, migrations, RLS policies, seed, ERD,
+  and the SQL bootstrap (schemas/roles/grants/RLS/extensions) Terraform runs.
+- `@pilotage/api-client` — typed client generated from the API's OpenAPI spec,
+  consumed by the web app through TanStack Query.
+
+See [`packages/db/ERD.md`](./packages/db/ERD.md) for the data model and
+[`docs/RGPD.md`](./docs/RGPD.md) for data-protection design.

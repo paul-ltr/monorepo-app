@@ -1,0 +1,11 @@
+node_modules
+dist
+build
+.turbo
+coverage
+pnpm-lock.yaml
+*.tfstate
+*.tfstate.*
+.terraform
+packages/db/drizzle
+apps/web/dev-dist

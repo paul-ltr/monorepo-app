@@ -1,0 +1,38 @@
+# Local dev infra so the app runs end-to-end without AWS.
+# Postgres is always on; LocalStack (S3/SQS) is opt-in via the `aws` profile:
+#   docker compose --profile aws up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pilotage-postgres
+    environment:
+      POSTGRES_USER: pilotage
+      POSTGRES_PASSWORD: pilotage
+      POSTGRES_DB: pilotage
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Bootstrap schemas/roles/RLS the way Terraform does in AWS.
+      - ./packages/db/sql/bootstrap.sql:/docker-entrypoint-initdb.d/00-bootstrap.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pilotage -d pilotage']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3
+    container_name: pilotage-localstack
+    profiles: ['aws']
+    environment:
+      SERVICES: s3,sqs,secretsmanager
+      DEFAULT_REGION: eu-west-3
+    ports:
+      - '4566:4566'
+    volumes:
+      - localstack:/var/lib/localstack
+
+volumes:
+  pgdata:
+  localstack:

@@ -1,0 +1,84 @@
+/**
+ * Pilotage design tokens — exported by Claude Design and consumed by the web app.
+ * Light values are taken verbatim from the design handoff. The dark theme is a
+ * derived adaptation. White-label: override --primary / --primary-strong at
+ * runtime from core.tenant_branding (see useBranding()).
+ */
+:root,
+:root[data-theme='light'] {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #fafbfc;
+  --surface-3: #f1f4f7;
+  --fg: #0f1722;
+  --fg-muted: #566273;
+  --fg-subtle: #8893a2;
+  --border: #e6e9ee;
+  --border-strong: #d5dae2;
+  --primary: #1b4db3;
+  --primary-strong: #163f94;
+  --primary-soft: #e9f0fb;
+  --on-primary: #ffffff;
+  --ok: #1a7f46;
+  --ok-soft: #e5f3ea;
+  --info: #1d6fe0;
+  --info-soft: #e7f0fd;
+  --warn: #b5640c;
+  --warn-soft: #fbefdc;
+  --danger: #c13128;
+  --danger-soft: #fbe9e7;
+  --energy: #0c8579;
+  --energy-soft: #e0f2ef;
+  --sidebar-bg: #0e1a2e;
+  --sidebar-fg: #aebbcd;
+  --sidebar-muted: #6c7b92;
+  --sidebar-active-bg: rgba(80, 131, 224, 0.18);
+  --sidebar-border: #1a2740;
+  --sidebar-head: #5e6e86;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 16px 40px -12px rgba(16, 24, 40, 0.28);
+}
+
+:root[data-theme='dark'] {
+  --bg: #0b1220;
+  --surface: #121b2c;
+  --surface-2: #0f1828;
+  --surface-3: #1b2740;
+  --fg: #e8edf5;
+  --fg-muted: #9fb0c6;
+  --fg-subtle: #6b7c95;
+  --border: #1f2c44;
+  --border-strong: #2c3b58;
+  --primary: #5b8def;
+  --primary-strong: #4178e6;
+  --primary-soft: rgba(91, 141, 239, 0.16);
+  --on-primary: #0b1220;
+  --ok: #43b97a;
+  --ok-soft: rgba(67, 185, 122, 0.16);
+  --info: #5b9bf0;
+  --info-soft: rgba(91, 155, 240, 0.16);
+  --warn: #e0a458;
+  --warn-soft: rgba(224, 164, 88, 0.16);
+  --danger: #ec6a5f;
+  --danger-soft: rgba(236, 106, 95, 0.16);
+  --energy: #2fb8a8;
+  --energy-soft: rgba(47, 184, 168, 0.16);
+  --sidebar-bg: #080f1c;
+  --sidebar-fg: #aebbcd;
+  --sidebar-muted: #6c7b92;
+  --sidebar-active-bg: rgba(80, 131, 224, 0.22);
+  --sidebar-border: #15213a;
+  --sidebar-head: #5e6e86;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
