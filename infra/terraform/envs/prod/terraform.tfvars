@@ -1,0 +1,10 @@
+env                      = "prod"
+region                   = "eu-west-3"
+use_managed_nat          = true          # managed NAT Gateway (HA/reliable)
+db_instance_class        = "db.t4g.medium"
+db_multi_az              = true
+db_deletion_protection   = true
+db_backup_retention_days = 30
+cors_origins             = "https://app.pilotage.example"
+callback_urls            = ["https://app.pilotage.example"]
+monthly_budget_usd       = "600"

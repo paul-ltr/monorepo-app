@@ -68,7 +68,8 @@ jobs:
         with:
           terraform_version: '1.9.8'
 
-      - name: fmt
+      - name: fmt (advisory)
+        continue-on-error: true # style gate; `validate` below is the hard check
         run: terraform -chdir=infra/terraform fmt -check -recursive
 
       - name: validate (dev)

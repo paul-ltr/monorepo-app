@@ -35,22 +35,27 @@ is French-first. Status legend: ✅ done · 🔜 next · ⬜ planned.
   `/me`/`/branding`/`/sites` + OPERAT generate. ⬜ remaining: SSE live feed,
   machine CRUD, refund/ticket writes, connectors mutations. Web flips mock→HTTP
   via `VITE_USE_MOCKS=false` + `VITE_API_BASE_URL` (no code change).
-- ⬜ **P7 — `infra/terraform`**: remote-state bootstrap → network (VPC, endpoints,
-  fck-nat) → rds (+ proxy, bootstrap SQL) → cognito → security (Secrets/KMS/WAF/
-  alarms) → web (S3+CloudFront) → api (Lambda+API GW) → events (SQS/EventBridge).
-  Per-env roots (dev/staging/prod); export the cross-repo outputs. `tf validate`.
-- ⬜ **P8 — CI/CD**: GitHub Actions — PR (lint/typecheck/test/build/`tf plan`) and
-  main (build+deploy web, package api Lambda, gated `tf apply`, DB migrate, smoke).
-  OIDC to AWS, per-env workflows.
-- ⬜ **P9 — Docs**: `docs/providers/*` (Cognito, Mistral, Stripe, Brevo, Web Push,
-  Google Business Profile) each with a "manual actions" checklist + status;
-  `docs/RGPD.md` (residency, consent, right-to-erasure event), `RUNBOOK.md`,
-  `COSTS.md`.
-- ⬜ **P10 — Should/Could scaffolding**: stub M3/M4/M6/M7/M8 + remote actions
-  (`device_command`) behind feature flags, with typed boundaries, TODOs and tests.
-- ⬜ **P11 — Quality gate**: Playwright e2e on critical flows (login, dashboard,
-  reconciliation, OPERAT, client launch-and-pay), axe a11y, coverage on MVP paths,
-  final DoD verification.
+- ✅ **P7 — `infra/terraform`**: remote-state bootstrap + 7 modules (network with
+  VPC endpoints + fck-nat/managed-NAT toggle, rds with RDS Proxy + Secrets +
+  bootstrap placeholder, cognito, security with KMS/secrets/WAF/budget/alarms,
+  web S3+CloudFront OAC, api Lambda+API GW with a Fargate migration path, events
+  SQS/EventBridge) + per-env roots (dev/staging/prod) exporting the cross-repo
+  outputs. Written by hand (Terraform not installable here → can't `validate`
+  locally; CI runs fmt+validate). Internally cross-checked: every `module.x.y`
+  reference resolves to a declared output, every module input is satisfied.
+- ✅ **P8 — CI/CD**: GitHub Actions — `ci.yml` (lint/typecheck/test/build with a
+  Postgres service + `tf fmt`/`validate`) and `deploy.yml` (env-gated OIDC deploy:
+  `tf apply` → migrate → web S3+CloudFront → api Lambda → smoke). Verified the CI
+  task graph (lint/typecheck/test/build) is green locally.
+- ✅ **P9 — Docs**: `docs/providers/*` (Cognito/Mistral/Stripe/Brevo/Web Push/GBP)
+  each with manual-actions checklist + status; `docs/RGPD.md` (residency, consent,
+  right-to-erasure cross-repo event, no PAN), `RUNBOOK.md`, `COSTS.md`.
+- 🔜 **P10 — Should/Could scaffolding**: feature flags + module boundaries exist in
+  `@pilotage/shared`; web reads via flags. Remaining: explicit 501 `feature_disabled`
+  stub endpoints for non-MVP modules + the `device_command` remote-action write path.
+- 🔜 **P11 — Quality gate**: ✅ RLS isolation test, RBAC-guard + Zod-pipe unit tests,
+  money/flags tests; live API smoke-verified. Remaining: Playwright e2e (login →
+  dashboard → reconciliation → OPERAT) + axe a11y in CI.
 
 ## Definition of done (MVP) — tracked
 One command brings web+api+pg up with seeded demo data · `terraform apply` to dev

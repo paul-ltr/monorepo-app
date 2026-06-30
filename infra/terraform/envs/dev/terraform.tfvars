@@ -1,0 +1,10 @@
+env                      = "dev"
+region                   = "eu-west-3"
+use_managed_nat          = false        # fck-nat instance (cheap)
+db_instance_class        = "db.t4g.small"
+db_multi_az              = false
+db_deletion_protection   = false
+db_backup_retention_days = 7
+cors_origins             = "http://localhost:5173"
+callback_urls            = ["http://localhost:5173"]
+monthly_budget_usd       = "100"

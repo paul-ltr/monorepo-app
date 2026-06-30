@@ -1,0 +1,10 @@
+env                      = "staging"
+region                   = "eu-west-3"
+use_managed_nat          = false
+db_instance_class        = "db.t4g.small"
+db_multi_az              = false
+db_deletion_protection   = true
+db_backup_retention_days = 14
+cors_origins             = "https://staging.pilotage.example"
+callback_urls            = ["https://staging.pilotage.example"]
+monthly_budget_usd       = "200"

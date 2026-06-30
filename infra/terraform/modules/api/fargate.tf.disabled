@@ -1,0 +1,28 @@
+# ---------------------------------------------------------------------------
+# Fargate / App Runner migration path (var.compute = "fargate").
+# The same NestJS app (src/main.ts) runs as a long-lived HTTP server in a
+# container — no code rewrite, just a different package/deploy target. Sketch:
+#
+# resource "aws_ecr_repository" "api" { name = "${var.name}-api" }
+#
+# resource "aws_ecs_cluster" "api" { name = "${var.name}" }
+#
+# resource "aws_ecs_task_definition" "api" {
+#   family                   = "${var.name}-api"
+#   requires_compatibilities = ["FARGATE"]
+#   cpu                      = "256"
+#   memory                   = "512"
+#   network_mode             = "awsvpc"
+#   execution_role_arn       = aws_iam_role.lambda.arn  # reuse / split as needed
+#   container_definitions    = jsonencode([{
+#     name      = "api"
+#     image     = "${aws_ecr_repository.api.repository_url}:latest"
+#     portMappings = [{ containerPort = 3000 }]
+#     environment  = [...]  # same vars as the Lambda environment block
+#   }])
+# }
+#
+# # + aws_ecs_service in private subnets behind an ALB (or App Runner service),
+# # target group health check on /health. API Gateway can stay (HTTP_PROXY to
+# # the ALB) or be replaced by the ALB directly.
+# ---------------------------------------------------------------------------
