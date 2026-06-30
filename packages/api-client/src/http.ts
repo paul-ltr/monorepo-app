@@ -29,7 +29,7 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
       },
     });
     if (!res.ok) {
-      const problem = await res.json().catch(() => ({}));
+      const problem = (await res.json().catch(() => ({}))) as { code?: string; title?: string };
       throw new ApiError(res.status, problem.code ?? 'internal', problem.title ?? res.statusText);
     }
     return res.json() as Promise<T>;
@@ -47,7 +47,7 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
-      const problem = await res.json().catch(() => ({}));
+      const problem = (await res.json().catch(() => ({}))) as { code?: string; title?: string };
       throw new ApiError(res.status, problem.code ?? 'internal', problem.title ?? res.statusText);
     }
     return res.json() as Promise<T>;

@@ -22,15 +22,19 @@ is French-first. Status legend: ✅ done · 🔜 next · ⬜ planned.
   (Dashboard, Machines + drawer, Énergie/OPERAT, Recettes/réconciliation,
   Maintenance, Tarifs, Clients, Finances, Réseau, Paramètres, Notifications) with
   loading/empty/error/offline states, white-label theming, a11y. **The primary ask.**
-- ⬜ **P5 — `apps/api` core**: NestJS + Lambda adapter; Cognito-or-dev-bypass auth
-  guard → request context; per-request RLS GUCs (`withTenantContext`); RBAC
-  guards; Zod validation pipe; RFC-7807 errors; pino logs + audit; OpenAPI;
-  `LlmService` (Mistral) with rate-limit + per-tenant cost cap; `/health`.
-- ⬜ **P6 — MVP API modules**: M1 (status/history/SSE), M2 (revenue + reconciliation
-  + cash), M5 (energy + OPERAT report), M9 (multi-site + benchmark + RBAC by
-  scope), M12 (tenants/users/roles/sites/connectors/audit/billing). Reads off
-  `ingest`/`analytics` (mocked locally until the data repo exists). Web flips from
-  mock client → HTTP client.
+- ✅ **P5 — `apps/api` core**: NestJS + Lambda adapter; Cognito-or-dev-bypass
+  AuthMiddleware → ALS request context; per-request RLS GUCs (`ScopedDb` →
+  `withTenantContext`); RBAC guard + `@RequirePermission`; Zod validation pipe;
+  RFC-7807 problem filter; audit writes; OpenAPI (`/docs`); swappable
+  `LlmService` (Mistral) with per-tenant token cap; `/health`. **Verified
+  end-to-end** against the seeded DB: `/me`, `/sites` (RLS-scoped read),
+  `/dashboard` (RBAC), `POST /energy/operat` (write + audit row), 422 on bad input.
+- 🔜 **P6 — MVP API modules**: ✅ read endpoints for M1/M2/M5/M9/M12 wired (served
+  from typed fixtures = the "mock `ingest`/`analytics`" the spec calls for, with
+  TODOs to swap for `analytics.*` queries once the data repo lands) + DB-backed
+  `/me`/`/branding`/`/sites` + OPERAT generate. ⬜ remaining: SSE live feed,
+  machine CRUD, refund/ticket writes, connectors mutations. Web flips mock→HTTP
+  via `VITE_USE_MOCKS=false` + `VITE_API_BASE_URL` (no code change).
 - ⬜ **P7 — `infra/terraform`**: remote-state bootstrap → network (VPC, endpoints,
   fck-nat) → rds (+ proxy, bootstrap SQL) → cognito → security (Secrets/KMS/WAF/
   alarms) → web (S3+CloudFront) → api (Lambda+API GW) → events (SQS/EventBridge).
