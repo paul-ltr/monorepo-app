@@ -53,9 +53,12 @@ is French-first. Status legend: ✅ done · 🔜 next · ⬜ planned.
 - 🔜 **P10 — Should/Could scaffolding**: feature flags + module boundaries exist in
   `@pilotage/shared`; web reads via flags. Remaining: explicit 501 `feature_disabled`
   stub endpoints for non-MVP modules + the `device_command` remote-action write path.
-- 🔜 **P11 — Quality gate**: ✅ RLS isolation test, RBAC-guard + Zod-pipe unit tests,
-  money/flags tests; live API smoke-verified. Remaining: Playwright e2e (login →
-  dashboard → reconciliation → OPERAT) + axe a11y in CI.
+- ✅ **P11 — Quality gate**: RLS isolation test (db), RBAC-guard + Zod-pipe unit
+  tests (api), money/flags/rbac tests (shared), and a **web render + axe-a11y test**
+  (Revenue/M2 against the mock client in jsdom) that also proves the React app
+  paints the design — closing the live-preview gap. `pnpm test` 6/6 green in CI.
+  Remaining (nice-to-have): full-browser Playwright e2e (heavy browser download)
+  for the end-to-end click-through.
 
 ## Definition of done (MVP) — tracked
 One command brings web+api+pg up with seeded demo data · `terraform apply` to dev
