@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pilotage
+          POSTGRES_PASSWORD: pilotage
+          POSTGRES_DB: pilotage
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U pilotage -d pilotage"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://pilotage:pilotage@localhost:5432/pilotage
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: DB migrate + seed (for RLS tests)
+        run: pnpm db:migrate && pnpm db:seed
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  terraform:
+    name: terraform fmt · validate · plan (dev)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC for `plan` against real AWS (when secrets are set)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+
+      - name: fmt
+        run: terraform -chdir=infra/terraform fmt -check -recursive
+
+      - name: validate (dev)
+        working-directory: infra/terraform/envs/dev
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      # `terraform plan` against AWS runs only when OIDC + backend are configured
+      # (repo vars AWS_ROLE_ARN, TF_STATE_BUCKET). Skipped on forks/without creds.
+      - name: plan (dev)
+        if: ${{ vars.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-west-3

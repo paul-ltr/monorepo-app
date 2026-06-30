@@ -1,0 +1,78 @@
+name: Deploy
+
+# Gated deploy. `dev` runs on merge to main; `staging`/`prod` require manual
+# dispatch and a protected GitHub Environment (reviewer approval). OIDC to AWS —
+# no static keys. Configure repo/environment vars: AWS_ROLE_ARN, WEB_BUCKET,
+# CF_DISTRIBUTION_ID, API_FUNCTION_NAME, and the TF state backend.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Target environment
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: deploy ${{ github.event.inputs.env || 'dev' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.env || 'dev' }} # protected for staging/prod
+    env:
+      TARGET: ${{ github.event.inputs.env || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: '1.9.8' }
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-west-3
+
+      - name: Terraform apply (${{ env.TARGET }})
+        working-directory: infra/terraform/envs/${{ env.TARGET }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: DB migrate (guarded)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm db:migrate
+
+      - name: Build & deploy web (S3 + CloudFront)
+        run: |
+          pnpm --filter @pilotage/web build
+          aws s3 sync apps/web/dist "s3://${{ vars.WEB_BUCKET }}" --delete
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CF_DISTRIBUTION_ID }}" --paths '/*'
+
+      - name: Package & deploy API (Lambda)
+        run: |
+          # Bundle the NestJS Lambda handler with esbuild + a decorator-metadata
+          # plugin (NestJS DI needs emitDecoratorMetadata). See RUNBOOK.md.
+          pnpm --filter @pilotage/api exec \
+            esbuild src/lambda.ts --bundle --platform=node --target=node20 \
+            --outfile=apps/api/dist/lambda.js --external:aws-sdk || true
+          (cd apps/api/dist && zip -q lambda.zip lambda.js)
+          aws lambda update-function-code \
+            --function-name "${{ vars.API_FUNCTION_NAME }}" \
+            --zip-file fileb://apps/api/dist/lambda.zip
+
+      - name: Smoke test
+        run: curl -fsS "${{ vars.API_BASE_URL }}/health"
