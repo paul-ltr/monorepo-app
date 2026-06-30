@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { DbModule } from './db/db.module';
 import { AuthMiddleware } from './auth/auth.middleware';
 import { PermissionGuard } from './auth/rbac';
+import { FeatureModuleGuard } from './auth/feature.guard';
 import { ProblemFilter } from './common/problem.filter';
 import { LlmService } from './llm/llm.service';
 import { ReadService } from './modules/read.service';
@@ -10,6 +11,8 @@ import { AuditService } from './modules/audit.service';
 import { HealthController } from './modules/health.controller';
 import { CoreController } from './modules/core.controller';
 import { ReadController } from './modules/read.controller';
+import { ActionsController } from './modules/actions.controller';
+import { StubsController } from './modules/stubs.controller';
 
 /**
  * Root module. One module would normally exist per domain (M1–M12); for the MVP
@@ -19,12 +22,13 @@ import { ReadController } from './modules/read.controller';
  */
 @Module({
   imports: [DbModule],
-  controllers: [HealthController, CoreController, ReadController],
+  controllers: [HealthController, CoreController, ReadController, ActionsController, StubsController],
   providers: [
     LlmService,
     ReadService,
     AuditService,
     { provide: APP_FILTER, useClass: ProblemFilter },
+    { provide: APP_GUARD, useClass: FeatureModuleGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
   ],
 })

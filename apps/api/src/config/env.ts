@@ -18,6 +18,8 @@ const schema = z.object({
   MISTRAL_MODEL_SMALL: z.string().default('mistral-small-latest'),
   MISTRAL_MODEL_LARGE: z.string().default('mistral-large-latest'),
   LLM_TENANT_MONTHLY_TOKEN_CAP: z.coerce.number().default(2_000_000),
+  // Comma-separated module overrides, e.g. "M8,M10=false" (enables Should/Could).
+  FEATURE_FLAGS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
