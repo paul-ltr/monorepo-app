@@ -1,0 +1,53 @@
+import type { Translations } from './fr';
+
+/** EN bundle is stubbed (FR is the product default; fallbackLng is 'fr'). */
+export const en: Translations = {
+  nav: {
+    overview: 'Overview',
+    exploitation: 'Operations',
+    machines: 'Machines & monitoring',
+    revenue: 'Revenue & payments',
+    energy: 'Energy & compliance',
+    maintenance: 'Maintenance',
+    pricing: 'Pricing & yield',
+    relation: 'Customers & network',
+    clients: 'Customers & loyalty',
+    finances: 'Finance',
+    reseau: 'Network',
+    settings: 'Settings',
+  },
+  topbar: {
+    allSites: 'All sites',
+    search: 'Search a site, machine or ticket…',
+    updated: 'Updated {{time}} ago',
+    notifications: 'Notifications',
+  },
+  common: {
+    today: 'Today',
+    d7: '7 days',
+    d30: '30 days',
+    export: 'Export',
+    seeAll: 'See all',
+    seeNetwork: 'View network →',
+    loading: 'Loading…',
+    empty: 'No data to display',
+    error: 'Something went wrong',
+    retry: 'Retry',
+    markAllRead: 'Mark all as read',
+    offline: 'Offline data',
+    stale: 'Stale data',
+  },
+  titles: {
+    dashboard: 'Overview',
+    machines: 'Machines & monitoring',
+    energy: 'Energy & compliance',
+    revenue: 'Revenue & payments',
+    maintenance: 'Maintenance & CMMS',
+    pricing: 'Pricing & yield',
+    clients: 'Customers & loyalty',
+    finances: 'Finance',
+    reseau: 'Network & benchmark',
+    settings: 'Settings',
+    notifications: 'Notifications',
+  },
+};
