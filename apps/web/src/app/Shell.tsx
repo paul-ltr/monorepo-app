@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Icon, type IconName } from '@/components/Icon';
 import { Avatar } from '@/components/ui';
+import { FreshnessBadge } from '@/components/state';
 import { useApi } from '@/lib/api';
 import { useSession, useBranding } from '@/lib/hooks';
 import { cn } from '@/lib/cn';
@@ -108,6 +109,8 @@ function Topbar({ orgName, orgInitials }: { orgName: string; orgInitials: string
   const navigate = useNavigate();
   const notifs = useQuery({ queryKey: ['notifications'], queryFn: () => api.getNotifications() });
   const unread = notifs.data?.unreadCount ?? 0;
+  // Shares the dashboard query cache; drives the "Mis à jour…" / stale badge.
+  const dash = useQuery({ queryKey: ['dashboard', 'today'], queryFn: () => api.getDashboard('today') });
 
   return (
     <header className="z-[5] flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-border bg-surface px-[22px]">
@@ -139,6 +142,7 @@ function Topbar({ orgName, orgInitials }: { orgName: string; orgInitials: string
         />
       </div>
       <div className="flex-1" />
+      {dash.data && <FreshnessBadge freshness={dash.data.freshness} />}
       <button
         onClick={() => navigate({ to: '/notifications' })}
         title={t('topbar.notifications')}
