@@ -34,12 +34,16 @@ resource "aws_wafv2_web_acl" "regional" {
   name        = "pilotage-${var.env}-regional"
   scope       = "REGIONAL"
   description = "Managed rules for the API"
-  default_action { allow {} }
+  default_action {
+    allow {}
+  }
 
   rule {
     name     = "common"
     priority = 1
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
@@ -56,7 +60,9 @@ resource "aws_wafv2_web_acl" "regional" {
   rule {
     name     = "rate-limit"
     priority = 2
-    action { block {} }
+    action {
+      block {}
+    }
     statement {
       rate_based_statement {
         limit              = 2000
