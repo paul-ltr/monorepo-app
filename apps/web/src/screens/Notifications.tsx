@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { Notification } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
+import { useScope } from '@/lib/scope';
 import { relativeTime } from '@/lib/format';
 import { Button, Card, ScreenHeader } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -26,15 +27,19 @@ const FILTER_LABEL: Record<string, string> = {
 export function Notifications() {
   const { t } = useTranslation();
   const api = useApi();
+  const { label } = useScope();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('all');
   const [readAll, setReadAll] = useState(false);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const query = useQuery({ queryKey: ['notifications'], queryFn: () => api.getNotifications() });
+
+  const markRead = (id: string) => setReadIds((s) => new Set(s).add(id));
 
   return (
     <>
       <QueryBoundary query={query}>
         {(d) => {
-          const items = d.items.map((n) => ({ ...n, read: readAll ? true : n.read }));
+          const items = d.items.map((n) => ({ ...n, read: readAll || readIds.has(n.id) ? true : n.read }));
           const unread = items.filter((n) => !n.read).length;
           let shown = items;
           if (filter === 'unread') shown = items.filter((n) => !n.read);
@@ -43,7 +48,7 @@ export function Notifications() {
           return (
             <>
               <ScreenHeader
-                crumbs={[t('topbar.allSites'), `${unread} non lues`]}
+                crumbs={[label, `${unread} non lues`]}
                 title={t('titles.notifications')}
                 actions={
                   <Button variant="secondary" icon="check" onClick={() => setReadAll(true)}>
@@ -72,17 +77,17 @@ export function Notifications() {
                   {shown.length === 0 ? (
                     <div className="p-8 text-center text-sm text-fg-subtle">{t('common.empty')}</div>
                   ) : (
-                    shown.map((n) => <Row key={n.id} n={n} />)
+                    shown.map((n) => <Row key={n.id} n={n} onClick={() => markRead(n.id)} />)
                   )}
                 </Card>
 
                 <Card className="p-4">
                   <div className="mb-1 text-sm font-bold">Préférences</div>
                   <div className="mb-4 text-xs text-fg-subtle">Canaux par niveau de sévérité.</div>
-                  <Pref title="Critiques" sub="Push + e-mail + SMS" on />
-                  <Pref title="Attention" sub="Push + e-mail" on />
+                  <Pref title="Critiques" sub="Push + e-mail + SMS" defaultOn />
+                  <Pref title="Attention" sub="Push + e-mail" defaultOn />
                   <Pref title="Info" sub="Dans l'app uniquement" />
-                  <Pref title="Résumé quotidien" sub="E-mail · 08:00" on last />
+                  <Pref title="Résumé quotidien" sub="E-mail · 08:00" defaultOn last />
                 </Card>
               </div>
             </>
@@ -93,10 +98,11 @@ export function Notifications() {
   );
 }
 
-function Row({ n }: { n: Notification }) {
+function Row({ n, onClick }: { n: Notification; onClick?: () => void }) {
   const sev = SEV[n.severity]!;
   return (
     <div
+      onClick={onClick}
       className={cn(
         'flex cursor-pointer gap-[13px] border-b border-l-[3px] border-border px-[18px] py-3.5 last:border-b-0 hover:bg-surface-2',
         n.read ? 'border-l-transparent bg-surface-2' : 'bg-surface',
@@ -120,18 +126,25 @@ function Row({ n }: { n: Notification }) {
   );
 }
 
-function Pref({ title, sub, on, last }: { title: string; sub: string; on?: boolean; last?: boolean }) {
+function Pref({ title, sub, defaultOn, last }: { title: string; sub: string; defaultOn?: boolean; last?: boolean }) {
+  const [on, setOn] = useState(!!defaultOn);
   return (
     <div className={cn('flex items-center justify-between py-[11px]', !last && 'border-b border-border')}>
       <div>
         <div className="text-[12.5px] font-semibold">{title}</div>
         <div className="text-[11px] text-fg-subtle">{sub}</div>
       </div>
-      <div className={cn('relative h-[22px] w-[38px] flex-shrink-0 rounded-[11px]', on ? 'bg-primary' : 'border border-border bg-surface-3')}>
+      <button
+        role="switch"
+        aria-checked={on}
+        aria-label={title}
+        onClick={() => setOn((v) => !v)}
+        className={cn('relative h-[22px] w-[38px] flex-shrink-0 rounded-[11px] transition-colors', on ? 'bg-primary' : 'border border-border bg-surface-3')}
+      >
         <span
-          className={cn('absolute top-[2px] h-[18px] w-[18px] rounded-full', on ? 'right-[2px] bg-white' : 'left-[2px] bg-fg-subtle')}
+          className={cn('absolute top-[2px] h-[18px] w-[18px] rounded-full transition-all', on ? 'right-[2px] bg-white' : 'left-[2px] bg-fg-subtle')}
         />
-      </div>
+      </button>
     </div>
   );
 }

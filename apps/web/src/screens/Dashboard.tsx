@@ -5,9 +5,12 @@ import { useTranslation } from 'react-i18next';
 import type { Period, DashboardAlert, SiteKpi } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
 import { useSession } from '@/lib/hooks';
-import { money0, pct, num, relativeTime } from '@/lib/format';
+import { useScope } from '@/lib/scope';
+import { money0, pct, relativeTime } from '@/lib/format';
+import { downloadCsv } from '@/lib/download';
 import { Button, Card, Pill, ProgressBar, ScreenHeader, SectionCard } from '@/components/ui';
 import { Icon, type IconName } from '@/components/Icon';
+import { useToast } from '@/components/Toast';
 import { Sparkline } from '@/components/charts';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
@@ -37,16 +40,27 @@ export function Dashboard() {
   const { t } = useTranslation();
   const api = useApi();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { scope, selectSite, label } = useScope();
   const [period, setPeriod] = useState<Period>('today');
   const session = useSession();
   const orgName = session.data?.tenant.name ?? 'Groupe Lavéo';
   const query = useQuery({ queryKey: ['dashboard', period], queryFn: () => api.getDashboard(period) });
-  const showAi = true;
+  const showAi = scope.type === 'all';
+
+  const exportSites = (sites: SiteKpi[]) => {
+    downloadCsv(
+      `vue-ensemble-${period}.csv`,
+      ['Site', 'CA', 'Occupation (%)', 'Uptime (%)', 'Benchmark (percentile)', 'Alertes'],
+      sites.map((s) => [s.name, (s.revenue.amountCents / 100).toFixed(2), s.occupancyPct, s.uptimePct, s.benchmarkPercentile, s.openAlerts]),
+    );
+    toast('Vue d’ensemble exportée (CSV).');
+  };
 
   return (
     <>
       <ScreenHeader
-        crumbs={[orgName, t('topbar.allSites')]}
+        crumbs={[orgName, label]}
         title={t('titles.dashboard')}
         actions={
           <>
@@ -64,7 +78,7 @@ export function Dashboard() {
                 </button>
               ))}
             </div>
-            <Button variant="secondary" icon="download">
+            <Button variant="secondary" icon="download" onClick={() => query.data && exportSites(query.data.sites)}>
               {t('common.export')}
             </Button>
           </>
@@ -72,7 +86,9 @@ export function Dashboard() {
       />
 
       <QueryBoundary query={query}>
-        {(d) => (
+        {(d) => {
+          const shownSites = scope.type === 'all' ? d.sites : d.sites.filter((s) => s.siteId === scope.siteId);
+          return (
           <>
             {/* KPI row */}
             <div className="mb-[18px] flex flex-wrap gap-3.5">
@@ -145,7 +161,11 @@ export function Dashboard() {
             <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[1.7fr_1fr]">
               <SectionCard
                 title="Performance par site"
-                subtitle="Comparatif sur les 6 sites · benchmark percentile vs pairs"
+                subtitle={
+                  scope.type === 'all'
+                    ? 'Comparatif sur les 6 sites · benchmark percentile vs pairs'
+                    : `Périmètre : ${scope.name}`
+                }
                 action={
                   <button onClick={() => navigate({ to: '/reseau' })} className="text-[12.5px] font-semibold text-primary">
                     {t('common.seeNetwork')}
@@ -160,9 +180,10 @@ export function Dashboard() {
                   <div>Benchmark</div>
                   <div className="text-center">Alertes</div>
                 </div>
-                {d.sites.map((s) => (
+                {shownSites.map((s) => (
                   <div
                     key={s.siteId}
+                    onClick={() => selectSite(s.siteId)}
                     className="grid cursor-pointer grid-cols-[1.6fr_.8fr_.9fr_.7fr_1.1fr_.6fr] items-center gap-2 border-b border-border px-[18px] py-3 hover:bg-surface-2"
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
@@ -207,7 +228,18 @@ export function Dashboard() {
               </SectionCard>
 
               <div className="flex flex-col gap-[18px]">
-                {showAi && <AiSynthesis />}
+                {showAi && (
+                  <AiSynthesis
+                    onOpenSite={() => {
+                      const v = d.sites.find((s) => s.name === 'Vénissieux Centre');
+                      if (v) selectSite(v.siteId);
+                    }}
+                    onOpenTickets={() => navigate({ to: '/maintenance' })}
+                    onFeedback={(useful) =>
+                      toast(useful ? 'Merci pour votre retour.' : 'Retour enregistré — nous améliorerons la synthèse.', 'info')
+                    }
+                  />
+                )}
                 <SectionCard
                   title={
                     <span className="flex items-center gap-2">
@@ -217,16 +249,21 @@ export function Dashboard() {
                       </span>
                     </span>
                   }
-                  action={<button className="text-xs font-semibold text-primary">{t('common.seeAll')}</button>}
+                  action={
+                    <button onClick={() => navigate({ to: '/notifications' })} className="text-xs font-semibold text-primary">
+                      {t('common.seeAll')}
+                    </button>
+                  }
                 >
                   {d.alerts.map((a) => (
-                    <AlertRow key={a.id} alert={a} />
+                    <AlertRow key={a.id} alert={a} onOpen={() => navigate({ to: '/notifications' })} />
                   ))}
                 </SectionCard>
               </div>
             </div>
           </>
-        )}
+          );
+        }}
       </QueryBoundary>
     </>
   );
@@ -259,10 +296,10 @@ function KpiSmall({
   );
 }
 
-function AlertRow({ alert }: { alert: DashboardAlert }) {
+function AlertRow({ alert, onOpen }: { alert: DashboardAlert; onOpen?: () => void }) {
   const tone = ALERT_TONE[alert.severity]!;
   return (
-    <div className="flex cursor-pointer gap-[11px] border-b border-border px-[17px] py-3 last:border-b-0 hover:bg-surface-2">
+    <div onClick={onOpen} className="flex cursor-pointer gap-[11px] border-b border-border px-[17px] py-3 last:border-b-0 hover:bg-surface-2">
       <div className={cn('flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[8px]', tone.bg, tone.fg)}>
         <Icon name={alert.icon} size={16} strokeWidth={1.9} />
       </div>
@@ -281,7 +318,15 @@ function AlertRow({ alert }: { alert: DashboardAlert }) {
   );
 }
 
-function AiSynthesis() {
+function AiSynthesis({
+  onOpenSite,
+  onOpenTickets,
+  onFeedback,
+}: {
+  onOpenSite: () => void;
+  onOpenTickets: () => void;
+  onFeedback: (useful: boolean) => void;
+}) {
   return (
     <Card
       className="relative overflow-hidden p-4"
@@ -307,19 +352,33 @@ function AiSynthesis() {
           <strong>Lyon-3</strong> dépasse son objectif de +12 %.
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <a className="cursor-pointer rounded-[7px] border border-border bg-surface px-[9px] py-[5px] text-[11.5px] font-semibold text-primary">
+          <button
+            onClick={onOpenSite}
+            className="cursor-pointer rounded-[7px] border border-border bg-surface px-[9px] py-[5px] text-[11.5px] font-semibold text-primary hover:border-border-strong"
+          >
             → Ouvrir Vénissieux
-          </a>
-          <a className="cursor-pointer rounded-[7px] border border-border bg-surface px-[9px] py-[5px] text-[11.5px] font-semibold text-primary">
+          </button>
+          <button
+            onClick={onOpenTickets}
+            className="cursor-pointer rounded-[7px] border border-border bg-surface px-[9px] py-[5px] text-[11.5px] font-semibold text-primary hover:border-border-strong"
+          >
             → 2 tickets liés
-          </a>
+          </button>
         </div>
         <div className="mt-[13px] flex items-center gap-2 border-t border-border pt-3">
           <span className="flex-1 text-[11px] text-fg-subtle">Cette synthèse vous est-elle utile ?</span>
-          <button className="flex h-7 w-7 items-center justify-center rounded-[7px] border border-border bg-surface text-fg-muted hover:border-ok hover:text-ok">
+          <button
+            onClick={() => onFeedback(true)}
+            aria-label="Synthèse utile"
+            className="flex h-7 w-7 items-center justify-center rounded-[7px] border border-border bg-surface text-fg-muted hover:border-ok hover:text-ok"
+          >
             <Icon name="thumbsUp" size={14} />
           </button>
-          <button className="flex h-7 w-7 items-center justify-center rounded-[7px] border border-border bg-surface text-fg-muted hover:border-danger hover:text-danger">
+          <button
+            onClick={() => onFeedback(false)}
+            aria-label="Synthèse peu utile"
+            className="flex h-7 w-7 items-center justify-center rounded-[7px] border border-border bg-surface text-fg-muted hover:border-danger hover:text-danger"
+          >
             <Icon name="thumbsUp" size={14} style={{ transform: 'rotate(180deg)' }} />
           </button>
         </div>
