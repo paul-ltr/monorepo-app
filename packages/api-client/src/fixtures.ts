@@ -21,6 +21,9 @@ import type {
   AdminSummary,
   NotificationList,
   Site,
+  SupportTicket,
+  TenantGroup,
+  AccountUser,
 } from '@pilotage/shared';
 import type { MachineStatusList, SessionInfo } from './types';
 
@@ -39,6 +42,7 @@ export const session: SessionInfo = {
   user: { id: u('10'), email: 'demo@laveo.fr', fullName: 'Sophie Diallo' },
   tenant: { id: u('1'), name: 'Groupe Lavéo' },
   roles: ['owner'],
+  superuser: true, // demo: LavoPilot staff — unlocks the back-office console
   permissions: [
     'M1:dashboard:view',
     'M1:machines:view',
@@ -513,3 +517,87 @@ export const notifications: NotificationList = {
   })),
   unreadCount: 4,
 };
+
+// ─────────────────── Back-office console (superuser) ────────────────────────
+
+export const tenantGroups: TenantGroup[] = (
+  [
+    ['Groupe Lavéo', 'scale', 'active', 6, 14, 149000, 'sophie@laveo.fr', '2021-02-10'],
+    ['Wash&Go', 'growth', 'active', 4, 7, 79000, 'contact@washandgo.fr', '2022-05-18'],
+    ['Bulle Express', 'starter', 'trial', 2, 3, 0, 'gerard@bulle-express.fr', '2026-06-12'],
+    ['Netteo', 'enterprise', 'active', 21, 48, 512000, 'admin@netteo.com', '2020-09-01'],
+    ['LavoZen', 'growth', 'past_due', 5, 9, 99000, 'billing@lavozen.fr', '2023-11-22'],
+    ['CleanCircle', 'starter', 'suspended', 1, 2, 39000, 'hello@cleancircle.fr', '2024-03-30'],
+  ] as const
+).map(([name, plan, status, sitesCount, usersCount, mrrCents, ownerEmail, created], i) => ({
+  id: u(`a${i}`),
+  name,
+  plan,
+  status,
+  sitesCount,
+  usersCount,
+  mrrCents,
+  ownerEmail,
+  createdAt: `${created}T09:00:00.000Z`,
+}));
+
+export const accounts: AccountUser[] = (
+  [
+    ['a0', 'Groupe Lavéo', 'Sophie Diallo', 'sophie@laveo.fr', 'owner', 'active', '2026-06-29T07:40:00.000Z'],
+    ['a0', 'Groupe Lavéo', 'Marc Lefort', 'marc@laveo.fr', 'manager', 'active', '2026-06-28T18:12:00.000Z'],
+    ['a0', 'Groupe Lavéo', 'Karim Benali', 'k.benali@laveo.fr', 'technician', 'active', '2026-06-29T06:05:00.000Z'],
+    ['a1', 'Wash&Go', 'Julie Moreau', 'julie@washandgo.fr', 'owner', 'active', '2026-06-27T10:30:00.000Z'],
+    ['a1', 'Wash&Go', 'Paul Girard', 'paul@washandgo.fr', 'accountant', 'invited', null],
+    ['a3', 'Netteo', 'Léa Fontaine', 'lea@netteo.com', 'owner', 'active', '2026-06-29T05:50:00.000Z'],
+    ['a3', 'Netteo', 'Thomas Roy', 't.roy@netteo.com', 'viewer', 'suspended', '2026-05-02T14:00:00.000Z'],
+    ['a4', 'LavoZen', 'Nadia Cherif', 'nadia@lavozen.fr', 'manager', 'active', '2026-06-26T09:15:00.000Z'],
+  ] as const
+).map(([g, groupName, fullName, email, role, status, lastActiveAt], i) => ({
+  id: u(`b${i}`),
+  groupId: u(g),
+  groupName,
+  fullName,
+  email,
+  role,
+  status,
+  lastActiveAt,
+  createdAt: '2025-01-15T09:00:00.000Z',
+}));
+
+export const supportTickets: SupportTicket[] = (
+  [
+    ['SUP-1042', 'Écart de réconciliation sur Lyon-3', 'a0', 'Groupe Lavéo', 'Marc Lefort', 'marc@laveo.fr', 'open', 'high', 'billing', '2026-06-29T06:20:00.000Z',
+      [['client', 'Marc Lefort', 'Bonjour, un écart de 4,50 € persiste sur la journée d’hier pour Lyon-3.', '2026-06-29T06:20:00.000Z']]],
+    ['SUP-1041', 'Sèche-linge SL-03 hors-ligne', 'a1', 'Wash&Go', 'Julie Moreau', 'julie@washandgo.fr', 'pending', 'urgent', 'technical', '2026-06-29T05:10:00.000Z',
+      [['client', 'Julie Moreau', 'Le SL-03 ne remonte plus de données depuis ce matin.', '2026-06-29T05:10:00.000Z'],
+       ['staff', 'Support LavoPilot', 'Merci, nous vérifions le connecteur Speed Queen — retour sous 1 h.', '2026-06-29T05:40:00.000Z']]],
+    ['SUP-1040', 'Ajouter un rôle « comptable lecture seule »', 'a3', 'Netteo', 'Léa Fontaine', 'lea@netteo.com', 'open', 'normal', 'feature', '2026-06-28T16:02:00.000Z',
+      [['client', 'Léa Fontaine', 'Serait-il possible d’avoir un rôle comptable en lecture seule ?', '2026-06-28T16:02:00.000Z']]],
+    ['SUP-1039', 'Facture de juin introuvable', 'a4', 'LavoZen', 'Nadia Cherif', 'nadia@lavozen.fr', 'resolved', 'normal', 'billing', '2026-06-27T11:30:00.000Z',
+      [['client', 'Nadia Cherif', 'Je ne retrouve pas ma facture de juin.', '2026-06-27T11:30:00.000Z'],
+       ['staff', 'Support LavoPilot', 'La voici en pièce jointe, désolé pour la gêne.', '2026-06-27T13:12:00.000Z']]],
+    ['SUP-1038', 'Demande de suppression de compte (RGPD)', 'a5', 'CleanCircle', 'Hugo Blanc', 'hugo@cleancircle.fr', 'closed', 'low', 'account', '2026-06-20T09:00:00.000Z',
+      [['client', 'Hugo Blanc', 'Merci de supprimer notre compte conformément au RGPD.', '2026-06-20T09:00:00.000Z'],
+       ['staff', 'Support LavoPilot', 'Compte purgé, confirmation envoyée par e-mail.', '2026-06-21T10:00:00.000Z']]],
+  ] as const
+).map(([ref, subject, g, groupName, requesterName, requesterEmail, status, priority, category, createdAt, msgs], i) => ({
+  id: u(`c${i}`),
+  ref,
+  subject,
+  groupId: u(g),
+  groupName,
+  requesterName,
+  requesterEmail,
+  status,
+  priority,
+  category,
+  createdAt,
+  updatedAt: msgs[msgs.length - 1]![2],
+  messages: msgs.map(([authorRole, authorName, body, at], j) => ({
+    id: u(`d${i}${j}`),
+    authorRole,
+    authorName,
+    body,
+    at,
+  })),
+}));

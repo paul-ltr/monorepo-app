@@ -6,6 +6,7 @@ import {
   AppError,
   ROLE_PERMISSIONS,
   ALL_PERMISSION_KEYS,
+  isLavoPilotStaff,
   type PermissionKey,
   type RequestContext,
   type SystemRoleKey,
@@ -70,6 +71,8 @@ export class AuthMiddleware implements NestMiddleware {
       permissions,
       scope: { type: 'tenant', id: user.tenantId },
       locale: user.locale ?? req.header('accept-language')?.split(',')[0] ?? 'fr-FR',
+      // Dev bypass trusts the operator; otherwise LavoPilot staff by email domain.
+      superuser: this.env.AUTH_DEV_BYPASS || isLavoPilotStaff(user.email),
     };
   }
 

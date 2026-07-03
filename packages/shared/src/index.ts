@@ -20,3 +20,4 @@ export * from './schemas/finance';
 export * from './schemas/network';
 export * from './schemas/admin';
 export * from './schemas/notifications';
+export * from './schemas/console';

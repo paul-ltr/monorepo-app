@@ -70,5 +70,12 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     getAdmin: () => get('/admin'),
     getNotifications: () => get('/notifications'),
     getSites: () => get('/sites'),
+    createSupportTicket: (input) => post('/support/tickets', input),
+    getSupportTickets: () => get('/console/tickets'),
+    replySupportTicket: (input) => post(`/console/tickets/${input.ticketId}/reply`, input),
+    getTenantGroups: () => get('/console/groups'),
+    getAccounts: () => get('/console/accounts'),
+    createAccount: (input) => post('/console/accounts', input),
+    updateAccount: (input) => post(`/console/accounts/${input.id}`, input),
   };
 }

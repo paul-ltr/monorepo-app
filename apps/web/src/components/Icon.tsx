@@ -38,7 +38,9 @@ export type IconName =
   | 'plus'
   | 'arrowRight'
   | 'logo'
-  | 'info';
+  | 'info'
+  | 'chat'
+  | 'shield';
 
 const PATHS: Record<IconName, ReactNode> = {
   dashboard: (
@@ -215,6 +217,13 @@ const PATHS: Record<IconName, ReactNode> = {
       <circle cx="12" cy="12" r="9" />
       <line x1="12" y1="8" x2="12" y2="13" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
+    </>
+  ),
+  chat: <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 9.5 9.5 0 0 1-4-.9L3 21l1.9-5.5a8.38 8.38 0 0 1-.9-4 8.5 8.5 0 0 1 8.5-8.5 8.38 8.38 0 0 1 8.5 8.5z" />,
+  shield: (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+      <path d="M9 12l2 2 4-4" />
     </>
   ),
 };

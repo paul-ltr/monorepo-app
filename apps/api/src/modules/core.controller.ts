@@ -21,6 +21,7 @@ export class CoreController {
       tenant: { id: ctx.tenantId, name: '' },
       roles: ctx.roles,
       permissions: ctx.permissions,
+      superuser: ctx.superuser,
     };
   }
 

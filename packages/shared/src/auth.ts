@@ -104,6 +104,13 @@ export interface RequestContext {
   permissions: PermissionKey[];
   scope: RequestScope;
   locale: string;
+  /** LavoPilot staff — grants access to the cross-tenant back-office console. */
+  superuser: boolean;
+}
+
+/** LavoPilot team membership is decided by email domain. */
+export function isLavoPilotStaff(email: string): boolean {
+  return /@lavopilot\.com$/i.test(email.trim());
 }
 
 export function hasPermission(ctx: RequestContext, key: PermissionKey): boolean {

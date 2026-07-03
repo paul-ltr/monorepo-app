@@ -18,6 +18,13 @@ import type {
   NotificationList,
   Site,
   PermissionKey,
+  SupportTicket,
+  CreateSupportTicketInput,
+  ReplyTicketInput,
+  TenantGroup,
+  AccountUser,
+  CreateAccountInput,
+  UpdateAccountInput,
 } from '@pilotage/shared';
 
 export interface MachineStatusList {
@@ -31,6 +38,8 @@ export interface SessionInfo {
   tenant: { id: string; name: string };
   roles: string[];
   permissions: PermissionKey[];
+  /** LavoPilot staff — unlocks the back-office console. */
+  superuser: boolean;
 }
 
 /**
@@ -55,4 +64,15 @@ export interface PilotageApi {
   getAdmin(): Promise<AdminSummary>;
   getNotifications(): Promise<NotificationList>;
   getSites(): Promise<Site[]>;
+
+  // Support widget — open to any authenticated user.
+  createSupportTicket(input: CreateSupportTicketInput): Promise<SupportTicket>;
+
+  // Back-office console — superuser (LavoPilot staff) only.
+  getSupportTickets(): Promise<SupportTicket[]>;
+  replySupportTicket(input: ReplyTicketInput): Promise<SupportTicket>;
+  getTenantGroups(): Promise<TenantGroup[]>;
+  getAccounts(): Promise<AccountUser[]>;
+  createAccount(input: CreateAccountInput): Promise<AccountUser>;
+  updateAccount(input: UpdateAccountInput): Promise<AccountUser>;
 }
