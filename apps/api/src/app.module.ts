@@ -13,6 +13,12 @@ import { CoreController } from './modules/core.controller';
 import { ReadController } from './modules/read.controller';
 import { ActionsController } from './modules/actions.controller';
 import { StubsController } from './modules/stubs.controller';
+import { LeadsController } from './modules/leads.controller';
+import { ConnectorsController } from './modules/connectors.controller';
+import { MailerService } from './modules/mailer.service';
+import { ConnectorStore } from './modules/connector-store.service';
+import { EnedisService } from './modules/enedis.service';
+import { GrdfService } from './modules/grdf.service';
 
 /**
  * Root module. One module would normally exist per domain (M1–M12); for the MVP
@@ -22,11 +28,23 @@ import { StubsController } from './modules/stubs.controller';
  */
 @Module({
   imports: [DbModule],
-  controllers: [HealthController, CoreController, ReadController, ActionsController, StubsController],
+  controllers: [
+    HealthController,
+    CoreController,
+    ReadController,
+    ActionsController,
+    StubsController,
+    LeadsController,
+    ConnectorsController,
+  ],
   providers: [
     LlmService,
     ReadService,
     AuditService,
+    MailerService,
+    ConnectorStore,
+    EnedisService,
+    GrdfService,
     { provide: APP_FILTER, useClass: ProblemFilter },
     { provide: APP_GUARD, useClass: FeatureModuleGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
@@ -34,6 +52,9 @@ import { StubsController } from './modules/stubs.controller';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AuthMiddleware).exclude('health').forRoutes('*');
+    consumer
+      .apply(AuthMiddleware)
+      .exclude('health', 'public/leads', 'connectors/enedis/callback')
+      .forRoutes('*');
   }
 }

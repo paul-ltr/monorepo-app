@@ -18,6 +18,16 @@ import type {
   NotificationList,
   Site,
   PermissionKey,
+  EnedisValidateInput,
+  EnedisValidateResult,
+  EnedisAuthorizeInput,
+  EnedisAuthorizeResult,
+  EnedisCompleteInput,
+  EnedisCompleteResult,
+  GrdfTestInput,
+  GrdfTestResult,
+  GrdfHistoryInput,
+  ConnectorHistory,
 } from '@pilotage/shared';
 
 export interface MachineStatusList {
@@ -55,4 +65,11 @@ export interface PilotageApi {
   getAdmin(): Promise<AdminSummary>;
   getNotifications(): Promise<NotificationList>;
   getSites(): Promise<Site[]>;
+
+  // Energy connectors (M5/M12) — Enedis Data Connect & GRDF ADICT onboarding.
+  enedisValidate(input: EnedisValidateInput): Promise<EnedisValidateResult>;
+  enedisAuthorize(input: EnedisAuthorizeInput): Promise<EnedisAuthorizeResult>;
+  enedisComplete(input: EnedisCompleteInput): Promise<EnedisCompleteResult>;
+  grdfTest(input: GrdfTestInput): Promise<GrdfTestResult>;
+  grdfHistory(input: GrdfHistoryInput): Promise<ConnectorHistory>;
 }

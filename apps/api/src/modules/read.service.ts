@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { fixtures } from '@pilotage/api-client';
+import { applyConnectorHistories } from '@pilotage/shared';
 import type {
   Period,
   DashboardSummary,
@@ -16,6 +17,7 @@ import type {
   OperatReport,
 } from '@pilotage/shared';
 import type { MachineStatusList } from '@pilotage/api-client';
+import { ConnectorStore } from './connector-store.service';
 
 /**
  * Read models for the dashboards. These are *derived* data that the data repo
@@ -26,6 +28,8 @@ import type { MachineStatusList } from '@pilotage/api-client';
  */
 @Injectable()
 export class ReadService {
+  constructor(private readonly connectors: ConnectorStore) {}
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getDashboard(_period: Period): DashboardSummary {
     return fixtures.dashboard;
@@ -40,8 +44,9 @@ export class ReadService {
   getRevenue(_period: Period): RevenueSummary {
     return fixtures.revenue;
   }
-  getEnergy(): EnergySummary {
-    return fixtures.energy;
+  /** Base Énergie/OPERAT read model, overlaid with any live connector data. */
+  getEnergy(tenantId: string): EnergySummary {
+    return applyConnectorHistories(fixtures.energy, this.connectors.list(tenantId));
   }
   getMaintenance(): MaintenanceSummary {
     return fixtures.maintenance;
