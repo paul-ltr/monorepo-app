@@ -14,7 +14,7 @@ import { ReadController } from './modules/read.controller';
 import { ActionsController } from './modules/actions.controller';
 import { StubsController } from './modules/stubs.controller';
 import { SupportController, ConsoleController } from './modules/console.controller';
-import { ConsoleStore } from './modules/console.store.service';
+import { ConsoleService } from './modules/console.service';
 
 /**
  * Root module. One module would normally exist per domain (M1–M12); for the MVP
@@ -37,7 +37,7 @@ import { ConsoleStore } from './modules/console.store.service';
     LlmService,
     ReadService,
     AuditService,
-    ConsoleStore,
+    ConsoleService,
     { provide: APP_FILTER, useClass: ProblemFilter },
     { provide: APP_GUARD, useClass: FeatureModuleGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },

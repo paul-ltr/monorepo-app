@@ -16,7 +16,7 @@ import { Ctx } from '@/auth/rbac';
 import { SuperuserGuard } from '@/auth/superuser';
 import { ZodPipe } from '@/common/zod.pipe';
 import { AuditService } from './audit.service';
-import { ConsoleStore } from './console.store.service';
+import { ConsoleService } from './console.service';
 
 /**
  * Support-ticket intake — open to any authenticated user (the floating support
@@ -27,7 +27,7 @@ import { ConsoleStore } from './console.store.service';
 @Controller('support')
 export class SupportController {
   constructor(
-    private readonly store: ConsoleStore,
+    private readonly console: ConsoleService,
     private readonly audit: AuditService,
   ) {}
 
@@ -36,12 +36,12 @@ export class SupportController {
     @Body(new ZodPipe(createSupportTicketInput)) body: CreateSupportTicketInput,
     @Ctx() ctx: RequestContext,
   ) {
-    const group = this.store.listGroups().find((g) => g.id === ctx.tenantId);
-    const ticket = this.store.createTicket(body, {
+    // The requester's group is their own tenant (groupName resolves from the view).
+    const ticket = await this.console.createTicket(body, {
       name: ctx.email,
       email: ctx.email,
       groupId: ctx.tenantId,
-      groupName: group?.name ?? 'Groupe',
+      groupName: '',
     });
     await this.audit.record(ctx, 'support.ticket.create', 'support_ticket', ticket.id);
     return ticket;
@@ -57,13 +57,13 @@ export class SupportController {
 @Controller('console')
 export class ConsoleController {
   constructor(
-    private readonly store: ConsoleStore,
+    private readonly console: ConsoleService,
     private readonly audit: AuditService,
   ) {}
 
   @Get('tickets')
   tickets() {
-    return this.store.listTickets();
+    return this.console.listTickets();
   }
 
   @Post('tickets/:id/reply')
@@ -72,7 +72,7 @@ export class ConsoleController {
     @Body(new ZodPipe(replyTicketInput)) body: ReplyTicketInput,
     @Ctx() ctx: RequestContext,
   ) {
-    const ticket = this.store.replyTicket(body, 'Support LavoPilot');
+    const ticket = await this.console.replyTicket(body, 'Support LavoPilot');
     if (!ticket) throw AppError.notFound('Ticket');
     await this.audit.record(ctx, 'support.ticket.reply', 'support_ticket', ticket.id);
     return ticket;
@@ -80,12 +80,12 @@ export class ConsoleController {
 
   @Get('groups')
   groups() {
-    return this.store.listGroups();
+    return this.console.listGroups();
   }
 
   @Get('accounts')
   accounts() {
-    return this.store.listAccounts();
+    return this.console.listAccounts();
   }
 
   @Post('accounts')
@@ -93,7 +93,7 @@ export class ConsoleController {
     @Body(new ZodPipe(createAccountInput)) body: CreateAccountInput,
     @Ctx() ctx: RequestContext,
   ) {
-    const account = this.store.createAccount(body);
+    const account = await this.console.createAccount(body);
     await this.audit.record(ctx, 'console.account.create', 'app_user', account.id);
     return account;
   }
@@ -104,7 +104,7 @@ export class ConsoleController {
     @Body(new ZodPipe(updateAccountInput)) body: UpdateAccountInput,
     @Ctx() ctx: RequestContext,
   ) {
-    const account = this.store.updateAccount(body);
+    const account = await this.console.updateAccount(body);
     if (!account) throw AppError.notFound('Compte');
     await this.audit.record(ctx, 'console.account.update', 'app_user', account.id);
     return account;
