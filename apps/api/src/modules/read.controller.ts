@@ -46,8 +46,8 @@ export class ReadController {
 
   @Get('energy')
   @RequirePermission('M5:energy:view')
-  energy() {
-    return this.read.getEnergy();
+  energy(@Ctx() ctx: RequestContext) {
+    return this.read.getEnergy(ctx.tenantId);
   }
 
   @Post('energy/operat')

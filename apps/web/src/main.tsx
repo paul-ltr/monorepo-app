@@ -6,7 +6,7 @@ import './i18n';
 import './index.css';
 import { router } from './app/router';
 import { queryClient } from './lib/query';
-import { AppProviders } from './app/providers';
+import { AppProviders, AuthGate } from './app/providers';
 
 const rootEl = document.getElementById('root')!;
 
@@ -14,7 +14,9 @@ createRoot(rootEl).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AppProviders>
-        <RouterProvider router={router} />
+        <AuthGate>
+          <RouterProvider router={router} />
+        </AuthGate>
       </AppProviders>
     </QueryClientProvider>
   </StrictMode>,

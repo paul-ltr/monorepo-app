@@ -29,6 +29,9 @@ terraform.rc
 override.tf
 override.tf.json
 
+# Claude Code worktrees (isolated checkouts, not part of the repo)
+.claude/worktrees/
+
 # Editor / OS
 .DS_Store
 Thumbs.db

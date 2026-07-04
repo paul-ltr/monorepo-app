@@ -37,7 +37,7 @@ export function Reseau() {
   const session = useSession();
   const { toast } = useToast();
   const { scope, selectSite } = useScope();
-  const orgName = session.data?.tenant.name ?? 'Groupe Lavéo';
+  const orgName = session.data?.tenant.name ?? 'Groupe Lavomatique';
   const query = useQuery({ queryKey: ['network'], queryFn: () => api.getNetwork() });
   const sitesQuery = useQuery({ queryKey: ['sites'], queryFn: () => api.getSites() });
 

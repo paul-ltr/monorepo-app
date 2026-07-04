@@ -30,6 +30,8 @@ export const energyMeter = z.object({
   anomaly: z.string().nullable(),
   /** Small sparkline series for the card. */
   series: z.array(z.number()),
+  /** True when the figures come from a live connector (Enedis/GRDF), not an estimate. */
+  live: z.boolean().optional(),
 });
 export type EnergyMeter = z.infer<typeof energyMeter>;
 

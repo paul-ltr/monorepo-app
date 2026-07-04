@@ -21,3 +21,5 @@ export * from './schemas/network';
 export * from './schemas/admin';
 export * from './schemas/notifications';
 export * from './schemas/console';
+export * from './schemas/connectors';
+export * from './connectors-sim';

@@ -44,7 +44,7 @@ export function Dashboard() {
   const { scope, selectSite, label } = useScope();
   const [period, setPeriod] = useState<Period>('today');
   const session = useSession();
-  const orgName = session.data?.tenant.name ?? 'Groupe Lavéo';
+  const orgName = session.data?.tenant.name ?? 'Groupe Lavomatique';
   const query = useQuery({ queryKey: ['dashboard', period], queryFn: () => api.getDashboard(period) });
   const showAi = scope.type === 'all';
 
@@ -88,6 +88,37 @@ export function Dashboard() {
       <QueryBoundary query={query}>
         {(d) => {
           const shownSites = scope.type === 'all' ? d.sites : d.sites.filter((s) => s.siteId === scope.siteId);
+          // Scope the headline KPIs: the whole network, or a single selected site.
+          const site = scope.type === 'site' ? d.sites.find((s) => s.siteId === scope.siteId) : undefined;
+          const kpi = site
+            ? {
+                revenueToday: site.revenue,
+                revenueDelta: {
+                  pct: site.revenueDeltaPct,
+                  direction: (site.revenueDeltaPct < 0 ? 'down' : 'up') as 'up' | 'down',
+                },
+                revenueYesterday: site.revenueYesterday,
+                machinesActive: site.machinesActive,
+                machinesTotal: site.machinesTotal,
+                machinesOutOfService: site.machinesOutOfService,
+                sitesWithOosCount: site.machinesOutOfService > 0 ? 1 : 0,
+                energyVsRefPct: site.energyVsRefPct,
+                openTickets: site.openTickets,
+                criticalTickets: site.criticalTickets,
+              }
+            : {
+                revenueToday: d.revenueToday,
+                revenueDelta: d.revenueDelta,
+                revenueYesterday: d.revenueYesterday,
+                machinesActive: d.machinesActive,
+                machinesTotal: d.machinesTotal,
+                machinesOutOfService: d.machinesOutOfService,
+                sitesWithOosCount: d.sitesWithOosCount,
+                energyVsRefPct: d.energyVsRefPct,
+                openTickets: d.openTickets,
+                criticalTickets: d.criticalTickets,
+              };
+          const shownAlerts = site ? d.alerts.filter((a) => a.siteName === site.name) : d.alerts;
           return (
           <>
             {/* KPI row */}
@@ -99,21 +130,21 @@ export function Dashboard() {
                 </div>
                 <div className="flex items-end gap-2.5">
                   <div className="whitespace-nowrap text-3xl font-bold tabular-nums tracking-[-1px]">
-                    {money0(d.revenueToday)}
+                    {money0(kpi.revenueToday)}
                   </div>
                   <div
                     className={cn(
                       'flex items-center gap-1 pb-[5px] text-[13px] font-bold',
-                      d.revenueDelta.direction === 'down' ? 'text-danger' : 'text-ok',
+                      kpi.revenueDelta.direction === 'down' ? 'text-danger' : 'text-ok',
                     )}
                   >
                     <Icon name="trendUp" size={14} strokeWidth={2.4} />
-                    {pct(d.revenueDelta.pct)}
+                    {pct(kpi.revenueDelta.pct)}
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <span className="text-[11.5px] text-fg-subtle">
-                    vs hier · {money0(d.revenueYesterday)}
+                    vs hier · {money0(kpi.revenueYesterday)}
                   </span>
                   <Sparkline points={[27, 24, 26, 17, 20, 12, 15, 7, 5]} />
                 </div>
@@ -125,34 +156,36 @@ export function Dashboard() {
                 label="Machines actives"
                 value={
                   <>
-                    {d.machinesActive}
-                    <span className="text-base font-semibold text-fg-subtle"> / {d.machinesTotal}</span>
+                    {kpi.machinesActive}
+                    <span className="text-base font-semibold text-fg-subtle"> / {kpi.machinesTotal}</span>
                   </>
                 }
               >
                 <ProgressBar
                   className="mt-2.5 h-[5px]"
-                  value={(d.machinesActive / d.machinesTotal) * 100}
+                  value={(kpi.machinesActive / kpi.machinesTotal) * 100}
                   tone="info"
                 />
                 <div className="mt-1.5 text-[11.5px] text-fg-subtle">
-                  {Math.round((d.machinesActive / d.machinesTotal) * 100)} % du parc en service
+                  {Math.round((kpi.machinesActive / kpi.machinesTotal) * 100)} % du parc en service
                 </div>
               </KpiSmall>
 
-              <KpiSmall icon="power" iconClass="text-danger" label="Hors service" valueClass="text-danger" value={d.machinesOutOfService}>
+              <KpiSmall icon="power" iconClass="text-danger" label="Hors service" valueClass="text-danger" value={kpi.machinesOutOfService}>
                 <Pill tone="danger" className="mt-3">
-                  {d.sitesWithOosCount} sites concernés
+                  {site ? (kpi.machinesOutOfService > 0 ? 'sur ce site' : 'aucun sur ce site') : `${kpi.sitesWithOosCount} sites concernés`}
                 </Pill>
               </KpiSmall>
 
-              <KpiSmall icon="leaf" iconClass="text-energy" label="Énergie vs réf." valueClass="text-energy" value={pct(d.energyVsRefPct)}>
-                <div className="mt-3 text-[11.5px] text-fg-subtle">Sous la référence du parc</div>
+              <KpiSmall icon="leaf" iconClass="text-energy" label="Énergie vs réf." valueClass="text-energy" value={pct(kpi.energyVsRefPct)}>
+                <div className="mt-3 text-[11.5px] text-fg-subtle">
+                  {kpi.energyVsRefPct < 0 ? 'Sous la référence du parc' : 'Au-dessus de la référence'}
+                </div>
               </KpiSmall>
 
-              <KpiSmall icon="wrench" iconClass="text-warn" label="Tickets ouverts" value={d.openTickets}>
+              <KpiSmall icon="wrench" iconClass="text-warn" label="Tickets ouverts" value={kpi.openTickets}>
                 <Pill tone="warn" className="mt-3">
-                  {d.criticalTickets} critiques
+                  {kpi.criticalTickets} critiques
                 </Pill>
               </KpiSmall>
             </div>
@@ -245,7 +278,7 @@ export function Dashboard() {
                     <span className="flex items-center gap-2">
                       Alertes prioritaires
                       <span className="rounded-[8px] bg-danger px-[7px] py-px text-[11px] font-bold tabular-nums text-white">
-                        {d.alerts.filter((a) => a.severity !== 'info').length}
+                        {shownAlerts.filter((a) => a.severity !== 'info').length}
                       </span>
                     </span>
                   }
@@ -255,9 +288,15 @@ export function Dashboard() {
                     </button>
                   }
                 >
-                  {d.alerts.map((a) => (
-                    <AlertRow key={a.id} alert={a} onOpen={() => navigate({ to: '/notifications' })} />
-                  ))}
+                  {shownAlerts.length === 0 ? (
+                    <div className="px-[17px] py-6 text-center text-[12.5px] text-fg-subtle">
+                      Aucune alerte active sur ce site.
+                    </div>
+                  ) : (
+                    shownAlerts.map((a) => (
+                      <AlertRow key={a.id} alert={a} onOpen={() => navigate({ to: '/notifications' })} />
+                    ))
+                  )}
                 </SectionCard>
               </div>
             </div>
