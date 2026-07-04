@@ -309,6 +309,15 @@ function NewTicketModal({
     create.reset();
   };
 
+  // On open, (re)sync the site from the current default (sites may have loaded
+  // after first mount) and clear the rest of the form.
+  useEffect(() => {
+    if (open) {
+      setSiteId(defaultSiteId ?? sites[0]?.id ?? '');
+      reset();
+    }
+  }, [open]);
+
   const valid = title.trim().length >= 3 && !!siteId;
   const submit = () => {
     if (!valid) return;

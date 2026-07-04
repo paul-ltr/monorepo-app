@@ -4,6 +4,7 @@ import {
   type PennylaneCompleteResult,
   type PennylaneStatus,
   PENNYLANE_TOKEN_URL,
+  PENNYLANE_REVOKE_URL,
   buildPennylaneAuthorizeUrl,
 } from '@pilotage/shared';
 import { loadEnv } from '@/config/env';
@@ -92,7 +93,7 @@ export class PennylaneService {
     }
     this.pending.delete(state);
 
-    if (!this.configured || !code) {
+    if (!this.configured) {
       const expiresAt = Date.now() + 86400 * 1000;
       this.connections.set(tenantId, {
         company: 'Société (bac à sable)',
@@ -106,6 +107,18 @@ export class PennylaneService {
         message: 'Pennylane connecté (simulation — aucun client OAuth configuré).',
         simulated: true,
         expiresAt: new Date(expiresAt).toISOString(),
+      };
+    }
+
+    // Live mode: an authorization code is mandatory. Its absence means the user
+    // denied consent or Pennylane redirected with an error — never a success.
+    if (!code) {
+      return {
+        status: 'error',
+        company: null,
+        message: 'Autorisation Pennylane refusée ou code manquant.',
+        simulated: false,
+        expiresAt: null,
       };
     }
 
@@ -146,7 +159,24 @@ export class PennylaneService {
     return { ok: result.status === 'connected' };
   }
 
-  disconnect(tenantId: string): PennylaneStatus {
+  async disconnect(tenantId: string): Promise<PennylaneStatus> {
+    const conn = this.connections.get(tenantId);
+    // Best-effort token revocation at Pennylane for live connections.
+    if (this.configured && conn && !conn.accessToken.startsWith('sandbox-')) {
+      try {
+        await fetch(PENNYLANE_REVOKE_URL, {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: this.env.PENNYLANE_CLIENT_ID!,
+            client_secret: this.env.PENNYLANE_CLIENT_SECRET!,
+            token: conn.accessToken,
+          }),
+        });
+      } catch (err) {
+        this.logger.warn(`Pennylane token revoke failed: ${(err as Error).message}`);
+      }
+    }
     this.connections.delete(tenantId);
     return this.status(tenantId);
   }

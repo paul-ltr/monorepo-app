@@ -30,7 +30,12 @@ export function Energy() {
   const totalSurface = sites.reduce((s, x) => s + (x.surfaceM2 ?? 0), 0);
   // When one site is active, scale the network meters down to that site's share
   // of declared surface — a reasonable per-site estimate until a meter is bound.
-  const surfaceFrac = activeSite && totalSurface ? (activeSite.surfaceM2 ?? 0) / totalSurface : 1;
+  // If the site's surface is unknown, fall back to an equal split (never 0).
+  const surfaceFrac = activeSite
+    ? activeSite.surfaceM2 && totalSurface
+      ? activeSite.surfaceM2 / totalSurface
+      : 1 / Math.max(1, sites.length)
+    : 1;
 
   return (
     <>

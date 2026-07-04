@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
@@ -242,6 +242,16 @@ function RoyaltyInvoiceModal({
   const [body, setBody] = useState('');
   // Keep the e-mail body in sync with the computed figures until the user edits it.
   const [bodyEdited, setBodyEdited] = useState(false);
+
+  // Reset the editable fields each time the modal opens.
+  useEffect(() => {
+    if (open) {
+      setRatePct('5');
+      setSubject(`Facture de redevances — ${period}`);
+      setBody('');
+      setBodyEdited(false);
+    }
+  }, [open]);
   const computedBody =
     `Bonjour,\n\nVeuillez trouver la facture de redevances de franchise pour ${period}.\n\n` +
     `Base (CA réseau 30 j) : ${money0(networkRevenue)}\n` +

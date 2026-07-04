@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -353,9 +353,15 @@ function NewPromotionModal({
     setLabel('');
     setType('percentage');
     setValue('20');
+    setScopeLabel(scopeOptions[0] ?? 'Tous les sites');
     setStatus('draft');
     create.reset();
   };
+
+  // Start from a clean form each time the modal opens.
+  useEffect(() => {
+    if (open) reset();
+  }, [open]);
 
   const valid = label.trim().length >= 2 && Number(value) > 0;
   const submit = () => {

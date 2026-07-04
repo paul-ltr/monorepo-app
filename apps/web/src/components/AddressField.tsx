@@ -25,10 +25,18 @@ export function AddressField({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  // Suppress the search that the programmatic value change from a selection
+  // would otherwise trigger (which would immediately reopen the dropdown).
+  const skipNextSearch = useRef(false);
 
   useEffect(() => {
+    if (skipNextSearch.current) {
+      skipNextSearch.current = false;
+      return;
+    }
     if (value.trim().length < 3) {
       setHits([]);
+      setLoading(false);
       return;
     }
     const ctrl = new AbortController();
@@ -80,6 +88,7 @@ export function AddressField({
               key={i}
               type="button"
               onClick={() => {
+                skipNextSearch.current = true;
                 onChange(h.label);
                 onSelect?.(h);
                 setOpen(false);

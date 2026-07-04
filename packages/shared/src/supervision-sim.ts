@@ -93,9 +93,10 @@ export function buildStateDistribution(
   }
 
   // Average share of time in each state over the window, in % (sums to 100).
+  // With an empty fleet there is nothing to distribute → all-zero shares.
   const denom = fleetSize * n || 1;
   const shareFloats = STATES.map((k) => (sums[k]! / denom) * 100);
-  const shareInts = largestRemainder(shareFloats, 100);
+  const shareInts = fleetSize === 0 ? STATES.map(() => 0) : largestRemainder(shareFloats, 100);
   const averageShares: MachineStateCounts = {
     free: shareInts[0]!,
     running: shareInts[1]!,

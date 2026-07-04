@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { CampaignChannel, CampaignStatus, CustomersSummary, LoyaltyTier } from '@pilotage/shared';
@@ -258,6 +258,11 @@ function NewCampaignModal({
     setStatus('draft');
     create.reset();
   };
+
+  // Start from a clean form each time the modal opens.
+  useEffect(() => {
+    if (open) reset();
+  }, [open]);
 
   const valid = label.trim().length >= 2;
   const submit = () => {
