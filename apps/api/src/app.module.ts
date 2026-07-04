@@ -14,7 +14,7 @@ import { ReadController } from './modules/read.controller';
 import { ActionsController } from './modules/actions.controller';
 import { StubsController } from './modules/stubs.controller';
 import { SupportController, ConsoleController } from './modules/console.controller';
-import { ConsoleStore } from './modules/console.store.service';
+import { ConsoleService } from './modules/console.service';
 import { LeadsController } from './modules/leads.controller';
 import { ConnectorsController } from './modules/connectors.controller';
 import { MailerService } from './modules/mailer.service';
@@ -45,7 +45,7 @@ import { GrdfService } from './modules/grdf.service';
     LlmService,
     ReadService,
     AuditService,
-    ConsoleStore,
+    ConsoleService,
     MailerService,
     ConnectorStore,
     EnedisService,

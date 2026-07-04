@@ -133,3 +133,23 @@ export const notificationSeverityEnum = core.enum('notification_severity', [
   'warning',
   'info',
 ]);
+
+export const supportTicketStatusEnum = core.enum('support_ticket_status', [
+  'open',
+  'pending',
+  'resolved',
+  'closed',
+]);
+export const supportTicketPriorityEnum = core.enum('support_ticket_priority', [
+  'low',
+  'normal',
+  'high',
+  'urgent',
+]);
+export const supportTicketCategoryEnum = core.enum('support_ticket_category', [
+  'billing',
+  'technical',
+  'account',
+  'feature',
+  'other',
+]);

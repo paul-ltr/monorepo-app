@@ -273,11 +273,110 @@ async function seedDemoTenant() {
   return { tenant, sites };
 }
 
+// Additional SaaS customers (groups) for the back-office console. [name, plan,
+// billingStatus, tenantStatus, sites, ownerName, ownerEmail]
+const GROUPS: Array<[string, string, string, 'active' | 'suspended', number, string, string]> = [
+  ['Wash&Go', 'growth', 'active', 'active', 4, 'Julie Moreau', 'julie@washandgo.fr'],
+  ['Bulle Express', 'starter', 'trialing', 'active', 2, 'Gérard Blin', 'gerard@bulle-express.fr'],
+  ['Netteo', 'enterprise', 'active', 'active', 21, 'Léa Fontaine', 'lea@netteo.com'],
+  ['LavoZen', 'growth', 'past_due', 'active', 5, 'Nadia Cherif', 'nadia@lavozen.fr'],
+  ['CleanCircle', 'starter', 'canceled', 'suspended', 1, 'Hugo Blanc', 'hugo@cleancircle.fr'],
+];
+
+/** Extra users so the console's account list is non-trivial. [group, name, email, role]. */
+const EXTRA_USERS: Array<[string, string, string, SystemRoleKey]> = [
+  ['Groupe Lavéo', 'Marc Lefort', 'marc@laveo.fr', 'manager'],
+  ['Groupe Lavéo', 'Karim Benali', 'k.benali@laveo.fr', 'technician'],
+  ['Wash&Go', 'Paul Girard', 'paul@washandgo.fr', 'accountant'],
+  ['Netteo', 'Thomas Roy', 't.roy@netteo.com', 'viewer'],
+];
+
+// [ref, group, subject, requester, email, status, priority, category, messages[[role,name,body]]]
+const TICKETS: Array<
+  [string, string, string, string, string, string, string, string, Array<[string, string, string]>]
+> = [
+  ['SUP-1042', 'Groupe Lavéo', 'Écart de réconciliation sur Lyon-3', 'Marc Lefort', 'marc@laveo.fr', 'open', 'high', 'billing',
+    [['client', 'Marc Lefort', 'Bonjour, un écart de 4,50 € persiste sur la journée d’hier pour Lyon-3.']]],
+  ['SUP-1041', 'Wash&Go', 'Sèche-linge SL-03 hors-ligne', 'Julie Moreau', 'julie@washandgo.fr', 'pending', 'urgent', 'technical',
+    [['client', 'Julie Moreau', 'Le SL-03 ne remonte plus de données depuis ce matin.'],
+     ['staff', 'Support LavoPilot', 'Merci, nous vérifions le connecteur Speed Queen — retour sous 1 h.']]],
+  ['SUP-1040', 'Netteo', 'Ajouter un rôle « comptable lecture seule »', 'Léa Fontaine', 'lea@netteo.com', 'open', 'normal', 'feature',
+    [['client', 'Léa Fontaine', 'Serait-il possible d’avoir un rôle comptable en lecture seule ?']]],
+  ['SUP-1039', 'LavoZen', 'Facture de juin introuvable', 'Nadia Cherif', 'nadia@lavozen.fr', 'resolved', 'normal', 'billing',
+    [['client', 'Nadia Cherif', 'Je ne retrouve pas ma facture de juin.'],
+     ['staff', 'Support LavoPilot', 'La voici en pièce jointe, désolé pour la gêne.']]],
+];
+
+async function seedConsole(demoTenantId: string) {
+  // A subscription for the demo tenant so it shows in the group registry.
+  await db.insert(s.saasSubscription).values({ tenantId: demoTenantId, plan: 'scale', status: 'active', sites: 6 });
+
+  const roles = await db.select().from(s.role).where(eq(s.role.isSystem, true));
+  const roleByKey = new Map(roles.map((r) => [r.key, r.id]));
+  const tenantByName = new Map<string, string>([['Groupe Lavéo', demoTenantId]]);
+
+  for (const [name, plan, billing, tStatus, sites, ownerName, ownerEmail] of GROUPS) {
+    const existing = await db.select().from(s.tenant).where(eq(s.tenant.name, name));
+    if (existing.length) await db.delete(s.tenant).where(eq(s.tenant.id, existing[0]!.id));
+
+    const t = one(
+      await db.insert(s.tenant).values({ name, type: 'multi_site', status: tStatus, locale: 'fr-FR' }).returning(),
+    );
+    tenantByName.set(name, t.id);
+    await db.insert(s.saasSubscription).values({ tenantId: t.id, plan, status: billing, sites });
+    const owner = one(
+      await db.insert(s.appUser).values({ tenantId: t.id, email: ownerEmail, fullName: ownerName }).returning(),
+    );
+    const ownerRoleId = roleByKey.get('owner');
+    if (ownerRoleId)
+      await db.insert(s.userRole).values({ userId: owner.id, roleId: ownerRoleId, scopeType: 'tenant', scopeId: t.id });
+  }
+
+  for (const [group, name, email, role] of EXTRA_USERS) {
+    const tid = tenantByName.get(group);
+    const roleId = roleByKey.get(role);
+    if (!tid || !roleId) continue;
+    const u = one(await db.insert(s.appUser).values({ tenantId: tid, email, fullName: name }).returning());
+    await db.insert(s.userRole).values({ userId: u.id, roleId, scopeType: 'tenant', scopeId: tid });
+  }
+
+  for (const [ref, group, subject, reqName, reqEmail, status, priority, category, msgs] of TICKETS) {
+    const tid = tenantByName.get(group);
+    if (!tid) continue;
+    const ticket = one(
+      await db
+        .insert(s.supportTicket)
+        .values({
+          tenantId: tid,
+          ref,
+          subject,
+          requesterName: reqName,
+          requesterEmail: reqEmail,
+          status: status as 'open' | 'pending' | 'resolved' | 'closed',
+          priority: priority as 'low' | 'normal' | 'high' | 'urgent',
+          category: category as 'billing' | 'technical' | 'account' | 'feature' | 'other',
+        })
+        .returning(),
+    );
+    await db.insert(s.supportMessage).values(
+      msgs.map(([authorRole, authorName, body]) => ({
+        tenantId: tid,
+        ticketId: ticket.id,
+        authorRole,
+        authorName,
+        body,
+      })),
+    );
+  }
+}
+
 async function main() {
   console.log('→ seeding RBAC catalog');
   await seedRbac();
   console.log('→ seeding demo tenant');
   const { tenant, sites } = await seedDemoTenant();
+  console.log('→ seeding console groups, accounts & tickets');
+  await seedConsole(tenant.id);
   console.log(`✓ seed complete — tenant ${tenant.id} with ${sites.length} sites`);
   process.exit(0);
 }

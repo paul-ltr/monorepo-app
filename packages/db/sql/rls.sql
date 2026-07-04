@@ -32,7 +32,8 @@ declare
     'part','part_usage',
     'charge','accounting_export','accounting_connector',
     'saas_subscription','invoice',
-    'connector_config','device_command','notification','audit_log'
+    'connector_config','device_command','notification','audit_log',
+    'support_ticket','support_message'
   ];
 begin
   foreach t in array uniform loop
@@ -130,3 +131,53 @@ create or replace view core.v_price_effective as
 
 grant usage on schema core to data_rw;
 grant select on core.v_tenant, core.v_site, core.v_machine, core.v_price_effective to data_rw;
+
+-- ===========================================================================
+-- Cross-tenant views for the LavoPilot back-office console (M12). Owned by the
+-- migration role → bypass RLS, so a superuser (app_rw) can read across tenants.
+-- Writes still go through the RLS-scoped base tables (tenant-scoped per row).
+-- ===========================================================================
+create or replace view core.v_app_user as
+  select u.id, u.tenant_id, t.name as tenant_name, u.email, u.full_name,
+         u.status, u.last_login_at, u.created_at,
+         coalesce(
+           (select r.key from core.user_role ur
+              join core.role r on r.id = ur.role_id
+             where ur.user_id = u.id
+             order by array_position(
+               array['owner','manager','accountant','technician','viewer']::text[], r.key)
+             limit 1),
+           'viewer') as role
+  from core.app_user u
+  join core.tenant t on t.id = u.tenant_id;
+
+create or replace view core.v_support_ticket as
+  select st.id, st.tenant_id, t.name as tenant_name, st.ref, st.subject,
+         st.requester_name, st.requester_email, st.status, st.priority,
+         st.category, st.created_at, st.updated_at
+  from core.support_ticket st
+  join core.tenant t on t.id = st.tenant_id;
+
+create or replace view core.v_support_message as
+  select id, tenant_id, ticket_id, author_name, author_role, body, created_at
+  from core.support_message;
+
+-- Group (tenant) registry with SaaS billing + rollup counts, cross-tenant.
+create or replace view core.v_group as
+  select t.id, t.name, t.status,
+         coalesce(sub.plan, 'starter') as plan,
+         coalesce(sub.status, 'trialing') as billing_status,
+         (select count(*) from core.site si
+            where si.tenant_id = t.id and si.deleted_at is null) as sites_count,
+         (select count(*) from core.app_user u where u.tenant_id = t.id) as users_count,
+         (select u2.email from core.app_user u2
+            join core.user_role ur on ur.user_id = u2.id
+            join core.role r on r.id = ur.role_id and r.key = 'owner'
+           where u2.tenant_id = t.id
+           limit 1) as owner_email,
+         t.created_at
+  from core.tenant t
+  left join core.saas_subscription sub on sub.tenant_id = t.id;
+
+-- The console runs as app_rw; these views bypass RLS by their owner.
+grant select on core.v_app_user, core.v_support_ticket, core.v_support_message, core.v_group to app_rw;

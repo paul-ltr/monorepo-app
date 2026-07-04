@@ -23,7 +23,25 @@ export class ScopedDb {
     );
   }
 
-  /** Raw client — for non-tenant-scoped work (health checks). */
+  /**
+   * Run scoped to an *explicit* tenant rather than the request's own — for the
+   * superuser back-office, whose writes target other tenants' rows. RLS still
+   * applies (the write is scoped to that tenant), so only a superuser-guarded
+   * controller should reach this.
+   */
+  runAs<T>(
+    tenantId: string,
+    fn: (tx: Parameters<Parameters<typeof withTenantContext<T>>[2]>[0]) => Promise<T>,
+  ): Promise<T> {
+    const ctx = getRequestContext();
+    return withTenantContext(
+      this.db,
+      { tenantId, userId: ctx.userId, role: loadEnv().DATABASE_APP_ROLE },
+      fn,
+    );
+  }
+
+  /** Raw client — non-tenant-scoped, for cross-tenant `core.v_*` view reads. */
   get raw(): Database {
     return this.db;
   }
