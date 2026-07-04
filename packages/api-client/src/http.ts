@@ -77,5 +77,10 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     getAccounts: () => get('/console/accounts'),
     createAccount: (input) => post('/console/accounts', input),
     updateAccount: (input) => post(`/console/accounts/${input.id}`, input),
+    enedisValidate: (input) => post('/connectors/enedis/validate', input),
+    enedisAuthorize: (input) => post('/connectors/enedis/authorize', input),
+    enedisComplete: (input) => post('/connectors/enedis/complete', input),
+    grdfTest: (input) => post('/connectors/grdf/test', input),
+    grdfHistory: (input) => post('/connectors/grdf/history', input),
   };
 }

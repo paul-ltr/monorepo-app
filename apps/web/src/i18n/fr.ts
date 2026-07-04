@@ -53,6 +53,17 @@ export const fr = {
     settings: 'Paramètres',
     notifications: 'Notifications',
   },
+  auth: {
+    title: 'Connexion',
+    subtitle: 'Accédez à votre console LavoPilot.',
+    email: 'E-mail',
+    password: 'Mot de passe',
+    submit: 'Se connecter',
+    signingIn: 'Connexion…',
+    error: 'E-mail ou mot de passe incorrect.',
+    demoHint: 'Démo : demo@lavopilot.com / demo1234',
+    logout: 'Se déconnecter',
+  },
 };
 
 export type Translations = typeof fr;

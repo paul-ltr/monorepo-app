@@ -72,6 +72,15 @@ export const siteKpi = z.object({
   /** Benchmark percentile vs peers (0–100). */
   benchmarkPercentile: z.number(),
   openAlerts: z.number().int(),
+  /** Per-site rollups so the dashboard KPIs can be scoped to one site. */
+  revenueYesterday: money,
+  revenueDeltaPct: z.number(),
+  machinesActive: z.number().int(),
+  machinesTotal: z.number().int(),
+  machinesOutOfService: z.number().int(),
+  energyVsRefPct: z.number(),
+  openTickets: z.number().int(),
+  criticalTickets: z.number().int(),
 });
 export type SiteKpi = z.infer<typeof siteKpi>;
 

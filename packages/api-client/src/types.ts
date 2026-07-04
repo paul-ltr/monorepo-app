@@ -25,6 +25,16 @@ import type {
   AccountUser,
   CreateAccountInput,
   UpdateAccountInput,
+  EnedisValidateInput,
+  EnedisValidateResult,
+  EnedisAuthorizeInput,
+  EnedisAuthorizeResult,
+  EnedisCompleteInput,
+  EnedisCompleteResult,
+  GrdfTestInput,
+  GrdfTestResult,
+  GrdfHistoryInput,
+  ConnectorHistory,
 } from '@pilotage/shared';
 
 export interface MachineStatusList {
@@ -75,4 +85,11 @@ export interface PilotageApi {
   getAccounts(): Promise<AccountUser[]>;
   createAccount(input: CreateAccountInput): Promise<AccountUser>;
   updateAccount(input: UpdateAccountInput): Promise<AccountUser>;
+
+  // Energy connectors (M5/M12) — Enedis Data Connect & GRDF ADICT onboarding.
+  enedisValidate(input: EnedisValidateInput): Promise<EnedisValidateResult>;
+  enedisAuthorize(input: EnedisAuthorizeInput): Promise<EnedisAuthorizeResult>;
+  enedisComplete(input: EnedisCompleteInput): Promise<EnedisCompleteResult>;
+  grdfTest(input: GrdfTestInput): Promise<GrdfTestResult>;
+  grdfHistory(input: GrdfHistoryInput): Promise<ConnectorHistory>;
 }

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import type { MachineState, MachineStatus } from '@pilotage/shared';
+import type { MachineKind, MachineState, MachineStatus } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
+import { useScope } from '@/lib/scope';
 import { money0, money2, relativeTime } from '@/lib/format';
-import { Card, ScreenHeader } from '@/components/ui';
+import { Button, Card, ScreenHeader } from '@/components/ui';
 import { Icon } from '@/components/Icon';
+import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
 import { MachineDrawer } from './MachineDrawer';
@@ -31,26 +33,48 @@ type KindFilter = 'all' | 'washer' | 'dryer';
 export function Machines() {
   const { t } = useTranslation();
   const api = useApi();
+  const { scope, label } = useScope();
+  const { toast } = useToast();
   const [openId, setOpenId] = useState<string | null>(null);
   const [kind, setKind] = useState<KindFilter>('all');
+  const [showConnect, setShowConnect] = useState(false);
+  const [added, setAdded] = useState<MachineStatus[]>([]);
   const query = useQuery({ queryKey: ['machines'], queryFn: () => api.getMachineStatuses() });
+
+  const onConnect = (m: MachineStatus) => {
+    setAdded((a) => [m, ...a]);
+    setShowConnect(false);
+    toast(`Machine « ${m.code} » connectée · en attente de première synchronisation.`);
+  };
 
   return (
     <>
       <ScreenHeader
-        crumbs={[t('topbar.allSites'), 'Lyon-3 Guillotière']}
+        crumbs={[label, scope.type === 'all' ? 'Parc consolidé · 6 sites' : 'Parc du site']}
         title={t('titles.machines')}
         actions={
-          <div className="flex items-center gap-1.5 rounded-[8px] bg-ok-soft px-[11px] py-1.5 text-xs text-fg-subtle">
-            <span className="h-[7px] w-[7px] animate-pl-pulse rounded-full bg-ok" />
-            <span className="font-semibold text-fg-muted">Flux temps réel · SSE · il y a 8 s</span>
-          </div>
+          <>
+            <div className="flex items-center gap-1.5 rounded-[8px] bg-ok-soft px-[11px] py-1.5 text-xs text-fg-subtle">
+              <span className="h-[7px] w-[7px] animate-pl-pulse rounded-full bg-ok" />
+              <span className="font-semibold text-fg-muted">Flux temps réel · SSE · il y a 8 s</span>
+            </div>
+            <Button variant="primary" icon="plus" onClick={() => setShowConnect((s) => !s)}>
+              Connecter une machine
+            </Button>
+          </>
         }
       />
 
+      {showConnect && <ConnectMachineForm onConnect={onConnect} onCancel={() => setShowConnect(false)} />}
+
       <QueryBoundary query={query}>
         {(data) => {
-          const items = kind === 'all' ? data.items : data.items.filter((m) => m.kind === kind);
+          const allItems = [...added, ...data.items];
+          const items = kind === 'all' ? allItems : allItems.filter((m) => m.kind === kind);
+          const counts = {
+            ...data.counts,
+            offline: data.counts.offline + added.filter((m) => m.state === 'offline').length,
+          };
           return (
             <>
               <div className="mb-5 flex flex-wrap gap-3">
@@ -60,14 +84,14 @@ export function Machines() {
                       <span className={cn('h-2 w-2 rounded-full', c.dot)} />
                       {c.label}
                     </div>
-                    <div className="mt-1 text-2xl font-bold tabular-nums">{data.counts[c.key]}</div>
+                    <div className="mt-1 text-2xl font-bold tabular-nums">{counts[c.key]}</div>
                   </Card>
                 ))}
               </div>
 
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 {([
-                  ['all', `Toutes · ${data.items.length}`],
+                  ['all', `Toutes · ${allItems.length}`],
                   ['washer', 'Lave-linge'],
                   ['dryer', 'Sèche-linge'],
                 ] as [KindFilter, string][]).map(([k, label]) => (
@@ -142,6 +166,114 @@ function MachineCard({ m, onClick }: { m: MachineStatus; onClick: () => void }) 
         </div>
       </div>
     </button>
+  );
+}
+
+/** M1 — connect/parametrize a new machine (mock: appends to the live grid). */
+function ConnectMachineForm({
+  onConnect,
+  onCancel,
+}: {
+  onConnect: (m: MachineStatus) => void;
+  onCancel: () => void;
+}) {
+  const [code, setCode] = useState('');
+  const [kind, setKind] = useState<MachineKind>('washer');
+  const [capacity, setCapacity] = useState('8');
+  const [brand, setBrand] = useState('speed_queen');
+
+  const brands = [
+    ['speed_queen', 'Speed Queen'],
+    ['girbau', 'Girbau'],
+    ['miele', 'Miele'],
+    ['electrolux', 'Electrolux'],
+    ['other', 'Autre'],
+  ] as const;
+
+  const submit = () => {
+    const c = code.trim().toUpperCase();
+    if (!c) return;
+    const name = `${kind === 'dryer' ? 'Sèche-linge' : 'Lave-linge'} ${capacity} kg`;
+    onConnect({
+      machineId: `local-${c}-${Date.now()}`,
+      code: c,
+      name,
+      kind,
+      state: 'offline',
+      detail: 'Nouvelle machine · en attente de synchronisation',
+      cyclesToday: 0,
+      revenueToday: { amountCents: 0, currency: 'EUR' },
+      etaSeconds: null,
+      freshness: { asOf: new Date().toISOString(), stale: true },
+    });
+  };
+
+  return (
+    <Card className="mb-5 p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+        <Icon name="plus" size={16} className="text-primary" strokeWidth={2} />
+        Connecter une machine
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <MField label="Identifiant (code)">
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="LL-11"
+            className="h-[38px] w-[120px] rounded-[9px] border border-border bg-surface px-3 text-[13px] outline-none focus:border-primary"
+          />
+        </MField>
+        <MField label="Type">
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as MachineKind)}
+            className="h-[38px] rounded-[9px] border border-border bg-surface px-3 text-[13px] outline-none focus:border-primary"
+          >
+            <option value="washer">Lave-linge</option>
+            <option value="dryer">Sèche-linge</option>
+          </select>
+        </MField>
+        <MField label="Capacité (kg)">
+          <input
+            type="number"
+            value={capacity}
+            onChange={(e) => setCapacity(e.target.value)}
+            className="h-[38px] w-[90px] rounded-[9px] border border-border bg-surface px-3 text-[13px] outline-none focus:border-primary"
+          />
+        </MField>
+        <MField label="Marque / centrale">
+          <select
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            className="h-[38px] rounded-[9px] border border-border bg-surface px-3 text-[13px] outline-none focus:border-primary"
+          >
+            {brands.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </MField>
+        <Button variant="primary" onClick={submit} disabled={!code.trim()}>
+          Connecter
+        </Button>
+        <Button variant="secondary" onClick={onCancel}>
+          Annuler
+        </Button>
+      </div>
+      <div className="mt-2.5 text-[11.5px] text-fg-subtle">
+        La machine est appairée à la centrale sélectionnée puis synchronisée automatiquement sous quelques minutes.
+      </div>
+    </Card>
+  );
+}
+
+function MField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold text-fg-subtle">{label}</span>
+      {children}
+    </label>
   );
 }
 

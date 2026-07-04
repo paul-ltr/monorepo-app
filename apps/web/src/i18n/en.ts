@@ -56,4 +56,15 @@ export const en: Translations = {
     settings: 'Settings',
     notifications: 'Notifications',
   },
+  auth: {
+    title: 'Sign in',
+    subtitle: 'Access your LavoPilot console.',
+    email: 'Email',
+    password: 'Password',
+    submit: 'Sign in',
+    signingIn: 'Signing in…',
+    error: 'Incorrect email or password.',
+    demoHint: 'Demo: demo@lavopilot.com / demo1234',
+    logout: 'Sign out',
+  },
 };

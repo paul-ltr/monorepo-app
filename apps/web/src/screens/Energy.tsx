@@ -179,6 +179,12 @@ function MeterCard({ m }: { m: EnergyMeter }) {
         <div className="flex items-center gap-2 text-[12.5px] font-semibold text-fg-muted">
           <Icon name={meta.icon} size={15} className={meta.iconClass} strokeWidth={1.9} />
           {meta.label}
+          {m.live && (
+            <span className="inline-flex items-center gap-1 rounded-[6px] bg-ok-soft px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-ok">
+              <span className="h-1.5 w-1.5 rounded-full bg-ok" />
+              En direct
+            </span>
+          )}
         </div>
         <span className={cn('text-[11.5px] font-bold', m.deltaPct <= 0 ? 'text-ok' : 'text-danger')}>{pct(m.deltaPct)}</span>
       </div>

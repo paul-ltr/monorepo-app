@@ -33,14 +33,14 @@ const u = (n: string) => `00000000-0000-7000-8000-${n.padStart(12, '0')}`;
 
 export const branding: TenantBranding = {
   tenantId: u('1'),
-  appName: 'Pilotage',
+  appName: 'LavoPilot',
   logoUrl: null,
   primaryColor: '#1B4DB3',
 };
 
 export const session: SessionInfo = {
   user: { id: u('10'), email: 'demo@laveo.fr', fullName: 'Sophie Diallo' },
-  tenant: { id: u('1'), name: 'Groupe Lavéo' },
+  tenant: { id: u('1'), name: 'Groupe Lavomatique' },
   roles: ['owner'],
   superuser: true, // demo: LavoPilot staff — unlocks the back-office console
   permissions: [
@@ -105,15 +105,16 @@ export const dashboard: DashboardSummary = {
   openTickets: 7,
   criticalTickets: 2,
   sites: (
+    // [name, CA, occ%, uptime%, benchPct, alerts, CA-hier, deltaPct, mActive, mTotal, mOOS, energyPct, tickets, critical]
     [
-      ['Lyon-3 Guillotière', 124800, 74, 99, 92, 0],
-      ['Paris-11 Voltaire', 98600, 61, 97, 78, 1],
-      ['Villeurbanne Gratte-Ciel', 73400, 58, 88, 54, 2],
-      ['Lyon-7 Jean Macé', 61200, 49, 92, 61, 0],
-      ['Vénissieux Centre', 42100, 38, 71, 22, 3],
-      ['Bron Terraillon', 28600, 31, 96, 44, 0],
+      ['Lyon-3 Guillotière', 124800, 74, 99, 92, 0, 116300, 7.3, 11, 11, 0, -9.1, 1, 0],
+      ['Paris-11 Voltaire', 98600, 61, 97, 78, 1, 92400, 6.7, 9, 10, 1, -4.2, 2, 0],
+      ['Villeurbanne Gratte-Ciel', 73400, 58, 88, 54, 2, 71900, 2.1, 7, 9, 1, 3.4, 1, 0],
+      ['Lyon-7 Jean Macé', 61200, 49, 92, 61, 0, 60100, 1.8, 6, 7, 0, -6.0, 1, 0],
+      ['Vénissieux Centre', 42100, 38, 71, 22, 3, 46800, -10.0, 5, 8, 2, 12.4, 2, 2],
+      ['Bron Terraillon', 28600, 31, 96, 44, 0, 27700, 3.2, 6, 7, 0, -5.5, 0, 0],
     ] as const
-  ).map(([name, ca, occ, up, pct, alerts], i) => ({
+  ).map(([name, ca, occ, up, pct, alerts, caY, delta, mAct, mTot, mOos, ePct, tk, crit], i) => ({
     siteId: u(`2${i}`),
     name,
     revenue: e(ca),
@@ -121,6 +122,14 @@ export const dashboard: DashboardSummary = {
     uptimePct: up,
     benchmarkPercentile: pct,
     openAlerts: alerts,
+    revenueYesterday: e(caY),
+    revenueDeltaPct: delta,
+    machinesActive: mAct,
+    machinesTotal: mTot,
+    machinesOutOfService: mOos,
+    energyVsRefPct: ePct,
+    openTickets: tk,
+    criticalTickets: crit,
   })),
   alerts: (
     [

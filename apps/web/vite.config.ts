@@ -9,14 +9,17 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Pilotage — Console opérateur',
-        short_name: 'Pilotage',
+        name: 'LavoPilot — Console opérateur',
+        short_name: 'LavoPilot',
         description: 'Console opérateur ERP pour laveries en libre-service',
         lang: 'fr',
         theme_color: '#0E1A2E',
         background_color: '#F4F6F8',
         display: 'standalone',
-        icons: [],
+        icons: [
+          { src: '/icon-256.png', sizes: '256x256', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
       },
       workbox: { navigateFallbackDenylist: [/^\/api/] },
     }),

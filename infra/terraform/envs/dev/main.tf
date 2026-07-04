@@ -56,6 +56,13 @@ module "web" {
   tags   = local.tags
 }
 
+module "site" {
+  source = "../../modules/site"
+  name   = local.name
+  env    = var.env
+  tags   = local.tags
+}
+
 module "api" {
   source               = "../../modules/api"
   name                 = local.name
