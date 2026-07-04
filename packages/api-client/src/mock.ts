@@ -80,10 +80,12 @@ export function createMockClient(): PilotageApi {
       const ticket = tickets.find((t) => t.id === input.ticketId);
       if (!ticket) return Promise.reject(new Error('ticket not found'));
       const now = new Date().toISOString();
-      ticket.messages = [
-        ...ticket.messages,
-        { id: uid(), authorName: 'Support LavoPilot', authorRole: 'staff', body: input.body, at: now },
-      ];
+      if (input.body) {
+        ticket.messages = [
+          ...ticket.messages,
+          { id: uid(), authorName: 'Support LavoPilot', authorRole: 'staff', body: input.body, at: now },
+        ];
+      }
       if (input.status) ticket.status = input.status;
       ticket.updatedAt = now;
       return delay({ ...ticket, messages: [...ticket.messages] });

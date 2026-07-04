@@ -522,15 +522,17 @@ export const notifications: NotificationList = {
 
 export const tenantGroups: TenantGroup[] = (
   [
-    ['Groupe Lavéo', 'scale', 'active', 6, 14, 149000, 'sophie@laveo.fr', '2021-02-10'],
-    ['Wash&Go', 'growth', 'active', 4, 7, 79000, 'contact@washandgo.fr', '2022-05-18'],
-    ['Bulle Express', 'starter', 'trial', 2, 3, 0, 'gerard@bulle-express.fr', '2026-06-12'],
-    ['Netteo', 'enterprise', 'active', 21, 48, 512000, 'admin@netteo.com', '2020-09-01'],
-    ['LavoZen', 'growth', 'past_due', 5, 9, 99000, 'billing@lavozen.fr', '2023-11-22'],
-    ['CleanCircle', 'starter', 'suspended', 1, 2, 39000, 'hello@cleancircle.fr', '2024-03-30'],
+    // Lavéo's group id === the current session tenant id (u('1')) so tickets
+    // filed from the support widget resolve to a real group.
+    ['1', 'Groupe Lavéo', 'scale', 'active', 6, 14, 149000, 'sophie@laveo.fr', '2021-02-10'],
+    ['a1', 'Wash&Go', 'growth', 'active', 4, 7, 79000, 'contact@washandgo.fr', '2022-05-18'],
+    ['a2', 'Bulle Express', 'starter', 'trial', 2, 3, 0, 'gerard@bulle-express.fr', '2026-06-12'],
+    ['a3', 'Netteo', 'enterprise', 'active', 21, 48, 512000, 'admin@netteo.com', '2020-09-01'],
+    ['a4', 'LavoZen', 'growth', 'past_due', 5, 9, 99000, 'billing@lavozen.fr', '2023-11-22'],
+    ['a5', 'CleanCircle', 'starter', 'suspended', 1, 2, 39000, 'hello@cleancircle.fr', '2024-03-30'],
   ] as const
-).map(([name, plan, status, sitesCount, usersCount, mrrCents, ownerEmail, created], i) => ({
-  id: u(`a${i}`),
+).map(([id, name, plan, status, sitesCount, usersCount, mrrCents, ownerEmail, created]) => ({
+  id: u(id),
   name,
   plan,
   status,
@@ -543,9 +545,9 @@ export const tenantGroups: TenantGroup[] = (
 
 export const accounts: AccountUser[] = (
   [
-    ['a0', 'Groupe Lavéo', 'Sophie Diallo', 'sophie@laveo.fr', 'owner', 'active', '2026-06-29T07:40:00.000Z'],
-    ['a0', 'Groupe Lavéo', 'Marc Lefort', 'marc@laveo.fr', 'manager', 'active', '2026-06-28T18:12:00.000Z'],
-    ['a0', 'Groupe Lavéo', 'Karim Benali', 'k.benali@laveo.fr', 'technician', 'active', '2026-06-29T06:05:00.000Z'],
+    ['1', 'Groupe Lavéo', 'Sophie Diallo', 'sophie@laveo.fr', 'owner', 'active', '2026-06-29T07:40:00.000Z'],
+    ['1', 'Groupe Lavéo', 'Marc Lefort', 'marc@laveo.fr', 'manager', 'active', '2026-06-28T18:12:00.000Z'],
+    ['1', 'Groupe Lavéo', 'Karim Benali', 'k.benali@laveo.fr', 'technician', 'active', '2026-06-29T06:05:00.000Z'],
     ['a1', 'Wash&Go', 'Julie Moreau', 'julie@washandgo.fr', 'owner', 'active', '2026-06-27T10:30:00.000Z'],
     ['a1', 'Wash&Go', 'Paul Girard', 'paul@washandgo.fr', 'accountant', 'invited', null],
     ['a3', 'Netteo', 'Léa Fontaine', 'lea@netteo.com', 'owner', 'active', '2026-06-29T05:50:00.000Z'],
@@ -566,7 +568,7 @@ export const accounts: AccountUser[] = (
 
 export const supportTickets: SupportTicket[] = (
   [
-    ['SUP-1042', 'Écart de réconciliation sur Lyon-3', 'a0', 'Groupe Lavéo', 'Marc Lefort', 'marc@laveo.fr', 'open', 'high', 'billing', '2026-06-29T06:20:00.000Z',
+    ['SUP-1042', 'Écart de réconciliation sur Lyon-3', '1', 'Groupe Lavéo', 'Marc Lefort', 'marc@laveo.fr', 'open', 'high', 'billing', '2026-06-29T06:20:00.000Z',
       [['client', 'Marc Lefort', 'Bonjour, un écart de 4,50 € persiste sur la journée d’hier pour Lyon-3.', '2026-06-29T06:20:00.000Z']]],
     ['SUP-1041', 'Sèche-linge SL-03 hors-ligne', 'a1', 'Wash&Go', 'Julie Moreau', 'julie@washandgo.fr', 'pending', 'urgent', 'technical', '2026-06-29T05:10:00.000Z',
       [['client', 'Julie Moreau', 'Le SL-03 ne remonte plus de données depuis ce matin.', '2026-06-29T05:10:00.000Z'],

@@ -53,12 +53,20 @@ export const createSupportTicketInput = z.object({
 });
 export type CreateSupportTicketInput = z.infer<typeof createSupportTicketInput>;
 
-/** Staff reply, optionally transitioning the ticket status. */
-export const replyTicketInput = z.object({
-  ticketId: uuid,
-  body: z.string().trim().min(1).max(5000),
-  status: supportTicketStatus.optional(),
-});
+/**
+ * Staff action on a ticket: post a reply, change status, or both. `body` is
+ * optional so a pure status transition (close/reopen) needs no message text;
+ * at least one of `body`/`status` must be present.
+ */
+export const replyTicketInput = z
+  .object({
+    ticketId: uuid,
+    body: z.string().trim().min(1).max(5000).optional(),
+    status: supportTicketStatus.optional(),
+  })
+  .refine((v) => v.body !== undefined || v.status !== undefined, {
+    message: 'body or status required',
+  });
 export type ReplyTicketInput = z.infer<typeof replyTicketInput>;
 
 // ──────────────────────────────── Groups ───────────────────────────────────

@@ -10,6 +10,7 @@ import type {
   SupportTicketStatus,
 } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
+import { useSession } from '@/lib/hooks';
 import { Button, Card, Pill, ScreenHeader, StatCard, type Tone } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { QueryBoundary, EmptyState } from '@/components/state';
@@ -44,7 +45,14 @@ const GROUP_STATUS: Record<GroupStatus, { label: string; tone: Tone }> = {
 const ROLES: AccountRole[] = ['owner', 'manager', 'accountant', 'technician', 'viewer'];
 
 export function AdminConsole() {
+  const session = useSession();
   const [tab, setTab] = useState<Tab>('tickets');
+
+  // Route guard: the nav link is hidden for non-staff, but the /console URL is
+  // reachable directly — gate here so the console (and its queries) never render
+  // for a non-superuser, in mock mode as well as against the API.
+  if (session.isLoading) return null;
+  if (!session.data?.superuser) return <NotAuthorized />;
 
   return (
     <>
@@ -78,6 +86,23 @@ export function AdminConsole() {
       {tab === 'tickets' && <TicketsTab />}
       {tab === 'groups' && <GroupsTab />}
       {tab === 'accounts' && <AccountsTab />}
+    </>
+  );
+}
+
+function NotAuthorized() {
+  return (
+    <>
+      <ScreenHeader crumbs={['LavoPilot']} title="Accès réservé" />
+      <Card className="flex flex-col items-center gap-3 p-10 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-danger-soft text-danger">
+          <Icon name="shield" size={24} />
+        </span>
+        <div className="text-[15px] font-bold">Console réservée à l'équipe LavoPilot</div>
+        <div className="text-[13px] text-fg-subtle">
+          Vous n'avez pas les droits pour accéder au back-office.
+        </div>
+      </Card>
     </>
   );
 }
@@ -146,7 +171,8 @@ function TicketDetail({ ticket }: { ticket: SupportTicket }) {
   const [reply, setReply] = useState('');
 
   const send = useMutation({
-    mutationFn: (status?: SupportTicketStatus) => api.replySupportTicket({ ticketId: ticket.id, body: reply, status }),
+    mutationFn: (vars: { body?: string; status?: SupportTicketStatus }) =>
+      api.replySupportTicket({ ticketId: ticket.id, ...vars }),
     onSuccess: () => {
       setReply('');
       qc.invalidateQueries({ queryKey: ['console', 'tickets'] });
@@ -200,14 +226,14 @@ function TicketDetail({ ticket }: { ticket: SupportTicket }) {
           <Button
             variant="primary"
             icon="arrowRight"
-            onClick={() => send.mutate(undefined)}
+            onClick={() => send.mutate({ body: reply })}
             disabled={!reply.trim() || send.isPending}
           >
             Répondre
           </Button>
           <Button
             variant="secondary"
-            onClick={() => send.mutate('resolved')}
+            onClick={() => send.mutate({ body: reply, status: 'resolved' })}
             disabled={!reply.trim() || send.isPending}
           >
             Répondre & résoudre
@@ -216,7 +242,7 @@ function TicketDetail({ ticket }: { ticket: SupportTicket }) {
           <Button
             variant="subtle"
             size="sm"
-            onClick={() => send.mutate(ticket.status === 'closed' ? 'open' : 'closed')}
+            onClick={() => send.mutate({ status: ticket.status === 'closed' ? 'open' : 'closed' })}
             disabled={send.isPending}
           >
             {ticket.status === 'closed' ? 'Rouvrir' : 'Clôturer'}

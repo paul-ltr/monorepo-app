@@ -24,7 +24,8 @@ function wrap(node: ReactNode) {
 describe('AdminConsole', () => {
   it('renders ticket triage from the API', async () => {
     render(wrap(<AdminConsole />));
-    expect(screen.getByRole('heading', { name: /Console d'administration/i })).toBeInTheDocument();
+    // Renders once the session resolves (the route is superuser-gated).
+    expect(await screen.findByRole('heading', { name: /Console d'administration/i })).toBeInTheDocument();
     // Ticket list binds from the mock.
     await waitFor(() => expect(screen.getAllByText('SUP-1042').length).toBeGreaterThan(0));
     expect(screen.getAllByText(/Groupe Lavéo/).length).toBeGreaterThan(0);
@@ -32,14 +33,14 @@ describe('AdminConsole', () => {
 
   it('switches to the groups tab and shows the registry', async () => {
     render(wrap(<AdminConsole />));
-    fireEvent.click(screen.getByRole('button', { name: /Groupes/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Groupes/i }));
     await waitFor(() => expect(screen.getByText('MRR total')).toBeInTheDocument());
     expect(screen.getByText('Netteo')).toBeInTheDocument();
   });
 
   it('creates an account from the accounts tab', async () => {
     render(wrap(<AdminConsole />));
-    fireEvent.click(screen.getByRole('button', { name: /Comptes/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Comptes/i }));
     await screen.findByText(/Créer un compte/i);
 
     fireEvent.change(screen.getByRole('combobox', { name: /Groupe/i }), {
@@ -50,6 +51,15 @@ describe('AdminConsole', () => {
     fireEvent.click(screen.getByRole('button', { name: /Envoyer l'invitation/i }));
 
     await waitFor(() => expect(screen.getByText(/Invitation envoyée à alice@washandgo.fr/i)).toBeInTheDocument());
+  });
+
+  it('closes a ticket without requiring a reply message', async () => {
+    render(wrap(<AdminConsole />));
+    // SUP-1042 (open) is auto-selected; close it with an empty reply box.
+    await screen.findAllByText('SUP-1042');
+    fireEvent.click(await screen.findByRole('button', { name: /^Clôturer$/i }));
+    // Status transitions with no message text → the toggle flips to "Rouvrir".
+    expect(await screen.findByRole('button', { name: /Rouvrir/i })).toBeInTheDocument();
   });
 
   it('has no obvious accessibility violations', async () => {

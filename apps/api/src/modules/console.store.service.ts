@@ -58,7 +58,9 @@ export class ConsoleStore {
     const ticket = this.tickets.find((t) => t.id === input.ticketId);
     if (!ticket) return null;
     const now = new Date().toISOString();
-    ticket.messages.push({ id: randomUUID(), authorName: staffName, authorRole: 'staff', body: input.body, at: now });
+    if (input.body) {
+      ticket.messages.push({ id: randomUUID(), authorName: staffName, authorRole: 'staff', body: input.body, at: now });
+    }
     if (input.status) ticket.status = input.status;
     ticket.updatedAt = now;
     return ticket;
