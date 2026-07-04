@@ -4,6 +4,8 @@ import type {
   DashboardSummary,
   MachineStatus,
   MachineStateCounts,
+  MachineStateDistribution,
+  MachineDistPeriod,
   MachineDetail,
   DataFreshness,
   RevenueSummary,
@@ -11,7 +13,13 @@ import type {
   OperatReport,
   MaintenanceSummary,
   PricingSummary,
+  Promotion,
+  CreatePromotionInput,
+  PromotionStatus,
   CustomersSummary,
+  Campaign,
+  CreateCampaignInput,
+  CampaignStatus,
   FinanceSummary,
   NetworkSummary,
   AdminSummary,
@@ -22,6 +30,8 @@ import type {
   SupportTicket,
   CreateSupportTicketInput,
   ReplyTicketInput,
+  Ticket,
+  CreateTicketInput,
   TenantGroup,
   AccountUser,
   CreateAccountInput,
@@ -36,6 +46,10 @@ import type {
   GrdfTestResult,
   GrdfHistoryInput,
   ConnectorHistory,
+  PennylaneStatus,
+  PennylaneAuthorizeResult,
+  PennylaneCompleteInput,
+  PennylaneCompleteResult,
 } from '@pilotage/shared';
 
 export interface MachineStatusList {
@@ -63,13 +77,22 @@ export interface PilotageApi {
   getBranding(): Promise<TenantBranding>;
   getDashboard(period: Period): Promise<DashboardSummary>;
   getMachineStatuses(): Promise<MachineStatusList>;
+  getMachineStateDistribution(
+    period: MachineDistPeriod,
+    siteId?: string,
+  ): Promise<MachineStateDistribution>;
   getMachineDetail(id: string): Promise<MachineDetail>;
   getRevenue(period: Period): Promise<RevenueSummary>;
   getEnergy(): Promise<EnergySummary>;
   generateOperat(year: number): Promise<OperatReport>;
   getMaintenance(): Promise<MaintenanceSummary>;
+  createMaintenanceTicket(input: CreateTicketInput): Promise<Ticket>;
   getPricing(): Promise<PricingSummary>;
+  createPromotion(input: CreatePromotionInput): Promise<Promotion>;
+  setPromotionStatus(id: string, status: PromotionStatus): Promise<Promotion>;
   getCustomers(): Promise<CustomersSummary>;
+  createCampaign(input: CreateCampaignInput): Promise<Campaign>;
+  setCampaignStatus(id: string, status: CampaignStatus): Promise<Campaign>;
   getFinance(): Promise<FinanceSummary>;
   getNetwork(): Promise<NetworkSummary>;
   getAdmin(): Promise<AdminSummary>;
@@ -95,4 +118,10 @@ export interface PilotageApi {
   enedisComplete(input: EnedisCompleteInput): Promise<EnedisCompleteResult>;
   grdfTest(input: GrdfTestInput): Promise<GrdfTestResult>;
   grdfHistory(input: GrdfHistoryInput): Promise<ConnectorHistory>;
+
+  // Accounting connector (M6) — Pennylane OAuth 2.0.
+  pennylaneStatus(): Promise<PennylaneStatus>;
+  pennylaneAuthorize(): Promise<PennylaneAuthorizeResult>;
+  pennylaneComplete(input: PennylaneCompleteInput): Promise<PennylaneCompleteResult>;
+  pennylaneDisconnect(): Promise<PennylaneStatus>;
 }

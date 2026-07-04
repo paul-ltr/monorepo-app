@@ -58,13 +58,22 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     getBranding: () => get('/branding'),
     getDashboard: (period: Period) => get(`/dashboard?period=${period}`),
     getMachineStatuses: () => get('/machines/status'),
+    getMachineStateDistribution: (period, siteId) =>
+      get(
+        `/machines/state-distribution?period=${period}${siteId ? `&siteId=${encodeURIComponent(siteId)}` : ''}`,
+      ),
     getMachineDetail: (id: string) => get(`/machines/${id}`),
     getRevenue: (period: Period) => get(`/revenue?period=${period}`),
     getEnergy: () => get('/energy'),
     generateOperat: (year: number) => post('/energy/operat', { year }),
     getMaintenance: () => get('/maintenance'),
+    createMaintenanceTicket: (input) => post('/maintenance/tickets', input),
     getPricing: () => get('/pricing'),
+    createPromotion: (input) => post('/pricing/promotions', input),
+    setPromotionStatus: (id, status) => post(`/pricing/promotions/${id}/status`, { status }),
     getCustomers: () => get('/customers'),
+    createCampaign: (input) => post('/customers/campaigns', input),
+    setCampaignStatus: (id, status) => post(`/customers/campaigns/${id}/status`, { status }),
     getFinance: () => get('/finance'),
     getNetwork: () => get('/network'),
     getAdmin: () => get('/admin'),
@@ -83,5 +92,9 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     enedisComplete: (input) => post('/connectors/enedis/complete', input),
     grdfTest: (input) => post('/connectors/grdf/test', input),
     grdfHistory: (input) => post('/connectors/grdf/history', input),
+    pennylaneStatus: () => get('/connectors/pennylane/status'),
+    pennylaneAuthorize: () => post('/connectors/pennylane/authorize'),
+    pennylaneComplete: (input) => post('/connectors/pennylane/complete', input),
+    pennylaneDisconnect: () => post('/connectors/pennylane/disconnect'),
   };
 }

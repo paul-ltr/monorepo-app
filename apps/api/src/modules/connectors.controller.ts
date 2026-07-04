@@ -10,12 +10,14 @@ import {
   type EnedisValidateInput,
   type GrdfHistoryInput,
   type GrdfTestInput,
+  type PennylaneCompleteInput,
   type RequestContext,
   enedisAuthorizeInput,
   enedisCompleteInput,
   enedisValidateInput,
   grdfHistoryInput,
   grdfTestInput,
+  pennylaneCompleteInput,
 } from '@pilotage/shared';
 import { ScopedDb } from '@/db/db.module';
 import { RequirePermission, Ctx } from '@/auth/rbac';
@@ -25,6 +27,7 @@ import { AuditService } from './audit.service';
 import { ConnectorStore } from './connector-store.service';
 import { EnedisService } from './enedis.service';
 import { GrdfService } from './grdf.service';
+import { PennylaneService } from './pennylane.service';
 
 /**
  * M5/M12 — energy connector onboarding for Enedis (electricity, consent-redirect
@@ -45,6 +48,7 @@ export class ConnectorsController {
     private readonly store: ConnectorStore,
     private readonly enedis: EnedisService,
     private readonly grdf: GrdfService,
+    private readonly pennylane: PennylaneService,
   ) {}
 
   // ── Enedis ────────────────────────────────────────────────────────────────
@@ -119,6 +123,48 @@ export class ConnectorsController {
     const history = await this.grdf.history(body.pce);
     await this.persist(ctx, body.siteId, 'grdf', history.usagePointId, history);
     return history;
+  }
+
+  // ── Pennylane (accounting, OAuth 2.0) ──────────────────────────────────────
+
+  @Get('pennylane/status')
+  @RequirePermission('M12:connectors:manage')
+  pennylaneStatus(@Ctx() ctx: RequestContext) {
+    return this.pennylane.status(ctx.tenantId);
+  }
+
+  @Post('pennylane/authorize')
+  @RequirePermission('M12:connectors:manage')
+  pennylaneAuthorize(@Ctx() ctx: RequestContext) {
+    return this.pennylane.authorize(ctx.tenantId);
+  }
+
+  /** PUBLIC — Pennylane redirects the user here after consent. */
+  @Get('pennylane/callback')
+  async pennylaneCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    const { ok } = await this.pennylane.completeFromCallback(state ?? '', code ?? '');
+    const url = new URL('/finances', this.env.WEB_PUBLIC_URL);
+    url.searchParams.set('pennylane', ok ? 'ok' : 'error');
+    res.redirect(url.toString());
+  }
+
+  @Post('pennylane/complete')
+  @RequirePermission('M12:connectors:manage')
+  pennylaneComplete(
+    @Body(new ZodPipe(pennylaneCompleteInput)) body: PennylaneCompleteInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.pennylane.complete(ctx.tenantId, body.state, body.code);
+  }
+
+  @Post('pennylane/disconnect')
+  @RequirePermission('M12:connectors:manage')
+  pennylaneDisconnect(@Ctx() ctx: RequestContext) {
+    return this.pennylane.disconnect(ctx.tenantId);
   }
 
   // ── Persistence ───────────────────────────────────────────────────────────

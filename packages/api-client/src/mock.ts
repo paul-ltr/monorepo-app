@@ -7,12 +7,21 @@ import {
   type ReplyTicketInput,
   type CreateAccountInput,
   type UpdateAccountInput,
+  type Ticket,
+  type CreateTicketInput,
+  type Promotion,
+  type CreatePromotionInput,
+  type PromotionStatus,
+  type Campaign,
+  type CreateCampaignInput,
+  type CampaignStatus,
   type Site,
   type ConnectedMeter,
   type ConnectorHistory,
   type EnergyProvider,
   applyConnectorHistories,
   buildDailyHistory,
+  buildStateDistribution,
   cleanDigits,
   isValidEnedisRef,
   lastNDays,
@@ -33,9 +42,19 @@ export function createMockClient(): PilotageApi {
   const tickets: SupportTicket[] = f.supportTickets.map((t) => ({ ...t, messages: [...t.messages] }));
   const groups: TenantGroup[] = f.tenantGroups.map((g) => ({ ...g }));
   const accounts: AccountUser[] = f.accounts.map((a) => ({ ...a }));
+  const maintTickets: Ticket[] = f.maintenance.tickets.map((t) => ({ ...t }));
+  const promotions: Promotion[] = f.pricing.promotions.map((p) => ({ ...p }));
+  const campaigns: Campaign[] = f.customers.campaigns.map((c) => ({ ...c }));
   // Mutable copy so per-site SMS edits persist within a session.
   const sites: Site[] = f.sites.map((s) => ({ ...s }));
   let seq = 1043;
+  let maintSeq = 2242;
+
+  const slaForPriority = (p: string) =>
+    p === 'critical' ? 'SLA 1 h' : p === 'high' ? 'SLA 2 h' : p === 'medium' ? 'SLA 1 j' : 'SLA 3 j';
+
+  // Simulated Pennylane connection state (no live OAuth in mock mode).
+  let pennylane = { connected: false, company: null as string | null, expiresAt: null as string | null };
 
   // Transient consent state for the simulated Enedis flow (state → prm + site).
   const enedisPending = new Map<string, { prm: string | null; siteId: string }>();
@@ -58,6 +77,14 @@ export function createMockClient(): PilotageApi {
     getBranding: () => delay(f.branding),
     getDashboard: (_period: Period) => delay(f.dashboard),
     getMachineStatuses: () => delay(f.machineStatuses),
+    getMachineStateDistribution: (period, siteId) => {
+      const items = siteId
+        ? f.machineStatuses.items.filter((m) => m.siteId === siteId)
+        : f.machineStatuses.items;
+      const counts = { free: 0, running: 0, finished: 0, out_of_service: 0, offline: 0 };
+      for (const m of items) counts[m.state] += 1;
+      return delay(buildStateDistribution(period, counts, siteId ?? 'fleet'));
+    },
     getMachineDetail: (id: string) => delay(f.machineDetail(id)),
     getRevenue: (_period: Period) => delay(f.revenue),
     getEnergy: () => delay(applyConnectorHistories(f.energy, [...connected.values()])),
@@ -70,9 +97,75 @@ export function createMockClient(): PilotageApi {
         fileKey: `operat/${year}/dossier.pdf`,
         createdAt: '2026-06-29T08:00:00.000Z',
       }),
-    getMaintenance: () => delay(f.maintenance),
-    getPricing: () => delay(f.pricing),
-    getCustomers: () => delay(f.customers),
+    getMaintenance: () => {
+      const open = ['open', 'assigned', 'in_progress'];
+      return delay({
+        ...f.maintenance,
+        tickets: maintTickets.map((t) => ({ ...t })),
+        openTickets: maintTickets.filter((t) => open.includes(t.status)).length,
+        criticalTickets: maintTickets.filter((t) => t.priority === 'critical' || t.priority === 'high').length,
+      });
+    },
+    createMaintenanceTicket: (input: CreateTicketInput) => {
+      const site = f.sites.find((s) => s.id === input.siteId);
+      const machine = input.machineId
+        ? f.machineStatuses.items.find((m) => m.machineId === input.machineId)
+        : undefined;
+      const priority = input.priority ?? 'medium';
+      const ticket: Ticket = {
+        id: uid(),
+        code: `#${maintSeq++}`,
+        title: input.title,
+        siteId: input.siteId,
+        siteName: site?.name ?? '—',
+        machineCode: machine?.code ?? null,
+        priority,
+        status: 'open',
+        source: input.source ?? 'operator',
+        slaLabel: slaForPriority(priority),
+        slaDueAt: null,
+        openedAt: new Date().toISOString(),
+      };
+      maintTickets.unshift(ticket);
+      return delay(ticket);
+    },
+    getPricing: () => delay({ ...f.pricing, promotions: promotions.map((p) => ({ ...p })) }),
+    createPromotion: (input: CreatePromotionInput) => {
+      const promo: Promotion = {
+        id: uid(),
+        label: input.label,
+        scopeLabel: input.scopeLabel ?? 'Tous les sites',
+        status: input.status ?? 'draft',
+        type: input.type,
+        value: input.value,
+      };
+      promotions.unshift(promo);
+      return delay(promo);
+    },
+    setPromotionStatus: (id: string, status: PromotionStatus) => {
+      const promo = promotions.find((p) => p.id === id);
+      if (!promo) return Promise.reject(new Error('promotion not found'));
+      promo.status = status;
+      return delay({ ...promo });
+    },
+    getCustomers: () => delay({ ...f.customers, campaigns: campaigns.map((c) => ({ ...c })) }),
+    createCampaign: (input: CreateCampaignInput) => {
+      const campaign: Campaign = {
+        id: uid(),
+        label: input.label,
+        channel: input.channel,
+        status: input.status ?? 'draft',
+        audienceLabel: input.audienceLabel || 'Audience à définir',
+      };
+      campaigns.unshift(campaign);
+      return delay(campaign);
+    },
+    setCampaignStatus: (id: string, status: CampaignStatus) => {
+      const campaign = campaigns.find((c) => c.id === id);
+      if (!campaign) return Promise.reject(new Error('campaign not found'));
+      campaign.status = status;
+      return delay({ ...campaign });
+    },
     getFinance: () => delay(f.finance),
     getNetwork: () => delay(f.network),
     getAdmin: () => delay(f.admin),
@@ -230,6 +323,29 @@ export function createMockClient(): PilotageApi {
       const history = { ...buildDailyHistory('grdf', pce, from, to, 42, 12), simulated: true };
       remember('grdf', input.siteId, history);
       return delay(history);
+    },
+
+    pennylaneStatus: () =>
+      delay({ connected: pennylane.connected, company: pennylane.company, simulated: true, expiresAt: pennylane.expiresAt }),
+    pennylaneAuthorize: () => {
+      const state = `pl-mock-${Math.random().toString(36).slice(2, 10)}`;
+      // No live Pennylane in mock mode → the UI drives the simulated consent.
+      return delay({ authorizeUrl: `#pennylane-consent/${state}`, state, simulated: true });
+    },
+    pennylaneComplete: () => {
+      const expiresAt = new Date(Date.now() + 86400 * 1000).toISOString();
+      pennylane = { connected: true, company: f.session.tenant.name, expiresAt };
+      return delay({
+        status: 'connected' as const,
+        company: pennylane.company,
+        message: `Pennylane connecté — société « ${pennylane.company} ».`,
+        simulated: true,
+        expiresAt,
+      });
+    },
+    pennylaneDisconnect: () => {
+      pennylane = { connected: false, company: null, expiresAt: null };
+      return delay({ connected: false, company: null, simulated: true, expiresAt: null });
     },
   };
 }

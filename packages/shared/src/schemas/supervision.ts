@@ -29,6 +29,8 @@ export type Machine = z.infer<typeof machine>;
 /** Live status row (from ingest.machine_status_current via the API). */
 export const machineStatus = z.object({
   machineId: uuid,
+  siteId: uuid,
+  siteName: z.string(),
   code: z.string(),
   name: z.string(),
   kind: machineKind,
@@ -127,6 +129,31 @@ export const machineStateCounts = z.object({
   offline: z.number().int(),
 });
 export type MachineStateCounts = z.infer<typeof machineStateCounts>;
+
+/** Window for the state-distribution analytics (repartition over time). */
+export const machineDistPeriod = z.enum(['7d', '30d', '90d']);
+export type MachineDistPeriod = z.infer<typeof machineDistPeriod>;
+
+/** One day's machine-state repartition (counts sum to the fleet size that day). */
+export const machineStateDistributionPoint = z.object({
+  date: z.string(), // YYYY-MM-DD
+  free: z.number().int(),
+  running: z.number().int(),
+  finished: z.number().int(),
+  out_of_service: z.number().int(),
+  offline: z.number().int(),
+});
+export type MachineStateDistributionPoint = z.infer<typeof machineStateDistributionPoint>;
+
+/** GET /machines/state-distribution — daily repartition + average shares (%). */
+export const machineStateDistribution = z.object({
+  period: machineDistPeriod,
+  fleetSize: z.number().int(),
+  points: z.array(machineStateDistributionPoint),
+  /** Average share of time each state occupied over the window, in % (sums ~100). */
+  averageShares: machineStateCounts,
+});
+export type MachineStateDistribution = z.infer<typeof machineStateDistribution>;
 
 /** SSE event pushed on the live machine feed. */
 export const machineStatusEvent = z.object({

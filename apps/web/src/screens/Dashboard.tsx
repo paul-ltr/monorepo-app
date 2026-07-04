@@ -8,7 +8,7 @@ import { useSession } from '@/lib/hooks';
 import { useScope } from '@/lib/scope';
 import { money0, pct, relativeTime } from '@/lib/format';
 import { downloadCsv } from '@/lib/download';
-import { Button, Card, InfoDot, Pill, ProgressBar, ScreenHeader, SectionCard } from '@/components/ui';
+import { Button, Card, InfoDot, Pill, ProgressBar, ScreenHeader, SectionCard, Segmented } from '@/components/ui';
 import { Icon, type IconName } from '@/components/Icon';
 import { useToast } from '@/components/Toast';
 import { Sparkline } from '@/components/charts';
@@ -64,20 +64,12 @@ export function Dashboard() {
         title={t('titles.dashboard')}
         actions={
           <>
-            <div className="flex rounded-[10px] border border-border bg-surface p-[3px]">
-              {PERIODS.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => setPeriod(p.key)}
-                  className={cn(
-                    'h-[30px] rounded-[7px] px-[13px] text-[12.5px] font-semibold',
-                    period === p.key ? 'bg-primary text-primary-fg' : 'text-fg-muted',
-                  )}
-                >
-                  {t(p.labelKey)}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              ariaLabel="Période"
+              value={period}
+              onChange={setPeriod}
+              options={PERIODS.map((p) => ({ value: p.key, label: t(p.labelKey) }))}
+            />
             <Button variant="secondary" icon="download" onClick={() => query.data && exportSites(query.data.sites)}>
               {t('common.export')}
             </Button>

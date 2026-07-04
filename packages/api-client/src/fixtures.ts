@@ -188,19 +188,29 @@ const MACHINE_DEFS = [
   ['LL-10', 'Lave-linge 8 kg', 'washer', 'finished', 'À vider', 8, 3200, null],
 ] as const;
 
+// Which site each machine in the demo grid belongs to (index into `sites`).
+// Vénissieux (idx 4) carries the two out-of-service/offline units → matches the
+// network "outlier" exception; Bron (idx 5, paused) has a single machine.
+const MACHINE_SITE_IDX = [0, 0, 0, 1, 1, 2, 0, 0, 1, 2, 3, 3, 4, 5, 4, 4];
+
 export const machineStatuses: MachineStatusList = {
-  items: MACHINE_DEFS.map(([code, name, kind, state, detail, cycles, rev, eta], i) => ({
-    machineId: u(`5${i}`),
-    code,
-    name,
-    kind,
-    state,
-    detail,
-    cyclesToday: cycles,
-    revenueToday: e(rev),
-    etaSeconds: eta ?? null,
-    freshness: { asOf: NOW, stale: state === 'offline' },
-  })) as MachineStatus[],
+  items: MACHINE_DEFS.map(([code, name, kind, state, detail, cycles, rev, eta], i) => {
+    const site = sites[MACHINE_SITE_IDX[i] ?? 0]!;
+    return {
+      machineId: u(`5${i}`),
+      siteId: site.id,
+      siteName: site.name,
+      code,
+      name,
+      kind,
+      state,
+      detail,
+      cyclesToday: cycles,
+      revenueToday: e(rev),
+      etaSeconds: eta ?? null,
+      freshness: { asOf: NOW, stale: state === 'offline' },
+    };
+  }) as MachineStatus[],
   counts: { free: 5, running: 5, finished: 3, out_of_service: 2, offline: 1 } as MachineStateCounts,
   freshness: { asOf: NOW, stale: false },
 };
@@ -210,7 +220,7 @@ export function machineDetail(id: string): MachineDetail {
   const oos = item.state === 'out_of_service';
   return {
     id: item.machineId,
-    siteId: u('20'),
+    siteId: item.siteId,
     code: item.code,
     name: item.name,
     kind: item.kind,
@@ -325,7 +335,7 @@ export const maintenance: MaintenanceSummary = {
     id: u(`7${i}`),
     code,
     title,
-    siteId: u(`2${i}`),
+    siteId: sites.find((s) => s.name === siteName || s.name.startsWith(siteName) || siteName.startsWith(s.name))?.id ?? u('20'),
     siteName,
     machineCode: null,
     priority,
@@ -348,6 +358,19 @@ export const maintenance: MaintenanceSummary = {
   ],
 };
 
+// Weekday tariff modulation (energy-smoothing) vs weekend (demand-heavy).
+const WEEKDAY_BANDS: PricingSummary['yieldSchedule']['mon'] = [
+  { slot: 'offpeak', fromHour: 0, toHour: 8 },
+  { slot: 'standard', fromHour: 8, toHour: 17 },
+  { slot: 'peak', fromHour: 17, toHour: 21 },
+  { slot: 'offpeak', fromHour: 21, toHour: 24 },
+];
+const WEEKEND_BANDS: PricingSummary['yieldSchedule']['mon'] = [
+  { slot: 'offpeak', fromHour: 0, toHour: 9 },
+  { slot: 'weekend', fromHour: 9, toHour: 20 },
+  { slot: 'standard', fromHour: 20, toHour: 24 },
+];
+
 export const pricing: PricingSummary = {
   gridName: 'Grille standard',
   grid: (
@@ -362,16 +385,19 @@ export const pricing: PricingSummary = {
     programLabel: label,
     prices: { standard: e(std), offpeak: e(off), peak: e(peak), weekend: e(wknd) },
   })),
-  yieldBands: [
-    { slot: 'offpeak', fromHour: 0, toHour: 8 },
-    { slot: 'standard', fromHour: 8, toHour: 17 },
-    { slot: 'peak', fromHour: 17, toHour: 21 },
-    { slot: 'offpeak', fromHour: 21, toHour: 24 },
-  ],
+  yieldSchedule: {
+    mon: WEEKDAY_BANDS,
+    tue: WEEKDAY_BANDS,
+    wed: WEEKDAY_BANDS,
+    thu: WEEKDAY_BANDS,
+    fri: WEEKDAY_BANDS,
+    sat: WEEKEND_BANDS,
+    sun: WEEKEND_BANDS,
+  },
   promotions: [
-    { id: u('90'), label: '−20 % séchage · mardi creux', scopeLabel: 'Tous les sites', status: 'active' },
-    { id: u('91'), label: 'Happy hour 14–16 h', scopeLabel: 'Lyon-3', status: 'scheduled' },
-    { id: u('92'), label: 'Rentrée −15 % grand volume', scopeLabel: 'Réseau', status: 'draft' },
+    { id: u('90'), label: '−20 % séchage · mardi creux', scopeLabel: 'Tous les sites', status: 'active', type: 'percentage', value: 20 },
+    { id: u('91'), label: 'Happy hour 14–16 h', scopeLabel: 'Lyon-3', status: 'scheduled', type: 'percentage', value: 15 },
+    { id: u('92'), label: 'Rentrée · 1 cycle offert', scopeLabel: 'Réseau', status: 'draft', type: 'bonus', value: 1 },
   ],
 };
 

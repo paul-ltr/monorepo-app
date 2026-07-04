@@ -20,14 +20,25 @@ export const loyaltyTierCount = z.object({
 });
 export type LoyaltyTierCount = z.infer<typeof loyaltyTierCount>;
 
+export const campaignStatus = z.enum(['active', 'draft', 'scheduled']);
+export type CampaignStatus = z.infer<typeof campaignStatus>;
+
 export const campaign = z.object({
   id: uuid,
   label: z.string(),
   channel: campaignChannel,
-  status: z.enum(['active', 'draft', 'scheduled']),
+  status: campaignStatus,
   audienceLabel: z.string(),
 });
 export type Campaign = z.infer<typeof campaign>;
+
+export const createCampaignInput = z.object({
+  label: z.string().min(2),
+  channel: campaignChannel,
+  audienceLabel: z.string().optional(),
+  status: campaignStatus.default('draft'),
+});
+export type CreateCampaignInput = z.infer<typeof createCampaignInput>;
 
 export const customersSummary = z.object({
   activeCustomers: z.number().int(),

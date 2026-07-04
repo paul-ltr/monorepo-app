@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { MachineState } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
+import { useScope } from '@/lib/scope';
 import { money2 } from '@/lib/format';
 import { Icon } from '@/components/Icon';
 import { useToast } from '@/components/Toast';
@@ -19,6 +20,7 @@ const STATE_META: Record<MachineState, { label: string; bg: string; fg: string }
 export function MachineDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const api = useApi();
   const { toast } = useToast();
+  const { sites } = useScope();
   const query = useQuery({ queryKey: ['machine', id], queryFn: () => api.getMachineDetail(id) });
 
   // Close on Escape.
@@ -51,7 +53,7 @@ export function MachineDrawer({ id, onClose }: { id: string; onClose: () => void
           <div className="min-w-0 flex-1">
             <div className="text-base font-bold">{m ? `${m.name} · ${m.code}` : '…'}</div>
             <div className="mt-0.5 text-xs text-fg-subtle">
-              {m ? `Lyon-3 Guillotière · ${m.brand} · SN ${m.serial}` : ''}
+              {m ? `${sites.find((s) => s.id === m.siteId)?.name ?? '—'} · ${m.brand} · SN ${m.serial}` : ''}
             </div>
           </div>
           <button
@@ -113,23 +115,35 @@ export function MachineDrawer({ id, onClose }: { id: string; onClose: () => void
         <div className="border-t border-border bg-surface-2 p-[14px_20px]">
           <div className="mb-2.5 text-[11px] font-semibold text-fg-subtle">Actions à distance · selon vos droits</div>
           <div className="flex gap-2.5">
+            {m?.status === 'out_of_service' ? (
+              <button
+                onClick={() => {
+                  toast(`${m?.name ?? 'Machine'} — commande « remise en service » envoyée.`, 'ok');
+                  onClose();
+                }}
+                className="h-10 flex-1 rounded-[9px] border border-border-strong bg-surface text-[13px] font-semibold text-fg hover:border-ok hover:text-ok"
+              >
+                Remettre en service
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  toast(`${m?.name ?? 'Machine'} — commande « mise hors service » envoyée.`, 'warn');
+                  onClose();
+                }}
+                className="h-10 flex-1 rounded-[9px] border border-border-strong bg-surface text-[13px] font-semibold text-fg hover:border-danger hover:text-danger"
+              >
+                Mettre hors service
+              </button>
+            )}
             <button
               onClick={() => {
-                toast(`${m?.name ?? 'Machine'} — commande « mise hors service » envoyée.`, 'warn');
-                onClose();
-              }}
-              className="h-10 flex-1 rounded-[9px] border border-border-strong bg-surface text-[13px] font-semibold text-fg hover:border-danger hover:text-danger"
-            >
-              Mettre hors service
-            </button>
-            <button
-              onClick={() => {
-                toast(`${m?.name ?? 'Machine'} — cycle lancé à distance.`);
+                toast(`${m?.name ?? 'Machine'} — remboursement du dernier paiement initié.`);
                 onClose();
               }}
               className="h-10 flex-1 rounded-[9px] bg-primary text-[13px] font-semibold text-primary-fg hover:bg-primary-strong"
             >
-              Lancer un cycle
+              Rembourser un cycle
             </button>
           </div>
         </div>

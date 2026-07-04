@@ -23,3 +23,5 @@ export * from './schemas/notifications';
 export * from './schemas/console';
 export * from './schemas/connectors';
 export * from './connectors-sim';
+export * from './supervision-sim';
+export * from './pennylane';
