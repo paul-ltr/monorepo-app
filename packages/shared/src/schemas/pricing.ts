@@ -11,15 +11,33 @@ export const priceGridRow = z.object({
 });
 export type PriceGridRow = z.infer<typeof priceGridRow>;
 
+export const promotionType = z.enum(['percentage', 'amount', 'bonus']);
+export type PromotionType = z.infer<typeof promotionType>;
+
+export const promotionStatus = z.enum(['active', 'scheduled', 'draft', 'paused']);
+export type PromotionStatus = z.infer<typeof promotionStatus>;
+
 export const promotion = z.object({
   id: uuid,
   label: z.string(),
   scopeLabel: z.string(), // "Tous les sites" / "Lyon-3" / "Réseau"
-  status: z.enum(['active', 'scheduled', 'draft']),
+  status: promotionStatus,
+  type: promotionType,
+  /** % for percentage, cents for amount, free cycles for bonus. */
+  value: z.number(),
 });
 export type Promotion = z.infer<typeof promotion>;
 
-/** A 24h yield band for the modulation strip. */
+export const createPromotionInput = z.object({
+  label: z.string().min(2),
+  type: promotionType,
+  value: z.number(),
+  scopeLabel: z.string().optional(),
+  status: z.enum(['active', 'scheduled', 'draft']).default('draft'),
+});
+export type CreatePromotionInput = z.infer<typeof createPromotionInput>;
+
+/** A time-of-day yield band for the modulation strip. */
 export const yieldBand = z.object({
   slot: priceSlot,
   fromHour: z.number().int().min(0).max(24),
@@ -27,10 +45,18 @@ export const yieldBand = z.object({
 });
 export type YieldBand = z.infer<typeof yieldBand>;
 
+/** Days of the week — yield pricing is configurable per day. */
+export const weekday = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+export type Weekday = z.infer<typeof weekday>;
+
+/** Yield bands per day of the week (empty/absent day → uses the standard grid). */
+export const yieldSchedule = z.record(weekday, z.array(yieldBand));
+export type YieldSchedule = z.infer<typeof yieldSchedule>;
+
 export const pricingSummary = z.object({
   gridName: z.string(),
   grid: z.array(priceGridRow),
-  yieldBands: z.array(yieldBand),
+  yieldSchedule,
   promotions: z.array(promotion),
 });
 export type PricingSummary = z.infer<typeof pricingSummary>;

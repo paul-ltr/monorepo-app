@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/cn';
 import { Icon, type IconName } from './Icon';
@@ -211,5 +212,232 @@ export function StatCard({
       <div className="text-[26px] font-bold tracking-[-0.5px] tabular-nums">{value}</div>
       {footer && <div className="mt-2 text-[11.5px] text-fg-subtle">{footer}</div>}
     </Card>
+  );
+}
+
+/**
+ * The single segmented control used everywhere (period pickers, kind filters,
+ * mode switches). Replaces the ad-hoc pill groups that had drifted apart in
+ * size/radius across screens. Generic over the option value type.
+ */
+export interface SegmentedOption<T extends string> {
+  value: T;
+  label: ReactNode;
+  icon?: IconName;
+}
+
+export function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+  size = 'md',
+  className,
+  ariaLabel,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: SegmentedOption<T>[];
+  size?: 'sm' | 'md';
+  className?: string;
+  ariaLabel?: string;
+}) {
+  const item = size === 'sm' ? 'h-[28px] px-2.5 text-[11.5px]' : 'h-[32px] px-[13px] text-[12.5px]';
+  return (
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      className={cn(
+        'inline-flex w-fit items-center gap-0.5 rounded-[10px] border border-border bg-surface p-[3px]',
+        className,
+      )}
+    >
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-[7px] font-semibold transition-colors',
+              item,
+              active ? 'bg-primary text-primary-fg' : 'text-fg-muted hover:text-fg',
+            )}
+          >
+            {o.icon && <Icon name={o.icon} size={14} />}
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Accessible on/off switch (role="switch"). Optional trailing label. */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  disabled,
+  className,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label?: ReactNode;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={typeof label === 'string' ? label : undefined}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'inline-flex items-center gap-2.5 disabled:cursor-not-allowed disabled:opacity-50',
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          'relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full border transition-colors',
+          checked ? 'border-primary bg-primary' : 'border-border bg-surface-3',
+        )}
+      >
+        <span
+          className={cn(
+            'inline-block h-[16px] w-[16px] rounded-full bg-white shadow-sm transition-transform',
+            checked ? 'translate-x-[19px]' : 'translate-x-[2px]',
+          )}
+        />
+      </span>
+      {label && <span className="text-[13px] font-medium text-fg">{label}</span>}
+    </button>
+  );
+}
+
+/** Portal dialog: backdrop, ESC-to-close, body scroll lock, optional footer. */
+export function Modal({
+  open,
+  onClose,
+  title,
+  subtitle,
+  icon,
+  children,
+  footer,
+  size = 'md',
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: ReactNode;
+  subtitle?: ReactNode;
+  icon?: IconName;
+  children: ReactNode;
+  footer?: ReactNode;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+  const width = size === 'sm' ? 'max-w-[440px]' : size === 'lg' ? 'max-w-[780px]' : 'max-w-[580px]';
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 py-[6vh]"
+      onMouseDown={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={cn(
+          'w-full overflow-hidden rounded-[16px] border border-border bg-surface shadow-2xl',
+          width,
+        )}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {(title || icon) && (
+          <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+            <div className="flex min-w-0 items-start gap-2.5">
+              {icon && (
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-primary-soft text-primary">
+                  <Icon name={icon} size={17} />
+                </span>
+              )}
+              <div className="min-w-0">
+                {title && <div className="text-[15px] font-bold">{title}</div>}
+                {subtitle && <div className="mt-0.5 text-xs text-fg-subtle">{subtitle}</div>}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Fermer"
+              className="shrink-0 text-fg-subtle hover:text-fg"
+            >
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+        )}
+        <div className="px-5 py-4">{children}</div>
+        {footer && (
+          <div className="flex items-center justify-end gap-2.5 border-t border-border bg-surface-2 px-5 py-3.5">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** Small "?" info affordance: click to reveal an explanatory popover. */
+export function InfoButton({ label, className }: { label: ReactNode; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+  return (
+    <span ref={ref} className={cn('relative inline-flex', className)}>
+      <button
+        type="button"
+        aria-label="Plus d’informations"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface-3 hover:text-fg"
+      >
+        <Icon name="info" size={14} />
+      </button>
+      {open && (
+        <span
+          role="tooltip"
+          className="absolute left-1/2 top-[24px] z-30 w-[240px] -translate-x-1/2 rounded-[10px] border border-border bg-surface p-3 text-[11.5px] font-medium leading-relaxed text-fg-muted shadow-xl"
+        >
+          {label}
+        </span>
+      )}
+    </span>
   );
 }

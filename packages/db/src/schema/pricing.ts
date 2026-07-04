@@ -3,7 +3,9 @@ import {
   boolean,
   char,
   index,
+  integer,
   jsonb,
+  smallint,
   text,
   timestamp,
   uuid,
@@ -57,10 +59,36 @@ export const promotion = core.table(
     scope: text('scope').notNull().default('tenant'),
     type: text('type').notNull().default('percentage'),
     value: bigint('value', { mode: 'number' }),
+    /** Optional customer-facing discount code. */
+    code: text('code'),
     schedule: jsonb('schedule'),
     active: boolean('active').notNull().default(false),
+    /** Lifecycle state driven from the UI: draft | scheduled | active | paused. */
+    status: text('status').notNull().default('draft'),
     startsAt: timestamp('starts_at', { withTimezone: true }),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
     ...timestamps,
   },
   (t) => [index('promotion_tenant_idx').on(t.tenantId)],
+);
+
+/**
+ * Per-day time-of-day yield windows (M7). Each row maps a slice of the day on a
+ * given weekday to a price slot, so tariffs can be modulated per day of week.
+ * `dayOfWeek` 0=Sunday … 6=Saturday; null = applies to every day.
+ */
+export const yieldWindow = core.table(
+  'yield_window',
+  {
+    id: pk(),
+    tenantId: tenantIdCol(),
+    siteId: uuid('site_id').references(() => site.id, { onDelete: 'cascade' }),
+    pricePlanId: uuid('price_plan_id').references(() => pricePlan.id, { onDelete: 'cascade' }),
+    dayOfWeek: smallint('day_of_week'),
+    slot: priceSlotEnum('slot').notNull().default('standard'),
+    fromHour: integer('from_hour').notNull().default(0),
+    toHour: integer('to_hour').notNull().default(24),
+    ...timestamps,
+  },
+  (t) => [index('yield_window_plan_idx').on(t.pricePlanId)],
 );

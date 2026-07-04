@@ -8,7 +8,7 @@ import { useSession } from '@/lib/hooks';
 import { useScope } from '@/lib/scope';
 import { money0, pct } from '@/lib/format';
 import { downloadCsv } from '@/lib/download';
-import { Button, Card, ScreenHeader, SectionCard } from '@/components/ui';
+import { Button, Card, InfoButton, Modal, ScreenHeader, SectionCard } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
@@ -40,6 +40,7 @@ export function Reseau() {
   const orgName = session.data?.tenant.name ?? 'Groupe Lavomatique';
   const query = useQuery({ queryKey: ['network'], queryFn: () => api.getNetwork() });
   const sitesQuery = useQuery({ queryKey: ['sites'], queryFn: () => api.getSites() });
+  const [showInvoice, setShowInvoice] = useState(false);
 
   const openSite = (rk: SiteRanking) => {
     selectSite(rk.siteId);
@@ -71,10 +72,27 @@ export function Reseau() {
         {(d) => (
           <>
             <div className="mb-[18px] flex flex-wrap gap-3.5">
-              <Kpi label="CA réseau · 30 j" value={money0(d.revenue30d)} />
-              <Kpi label="Indice benchmark" value={<>{d.benchmarkIndex}<span className="text-sm font-semibold text-fg-subtle"> /100</span></>} />
-              <Kpi label="Sites en alerte" value={d.sitesInAlert} valueClass="text-danger" />
-              <Kpi label="Redevances dues" value={money0(d.royaltiesDue)} />
+              <Kpi
+                label="CA réseau · 30 j"
+                value={money0(d.revenue30d)}
+                info="Somme des recettes encaissées (CB, sans contact, espèces) sur l’ensemble des sites du réseau, glissant sur 30 jours. Source : réconciliation monétique."
+              />
+              <Kpi
+                label="Indice benchmark"
+                value={<>{d.benchmarkIndex}<span className="text-sm font-semibold text-fg-subtle"> /100</span></>}
+                info="Score /100 situant le réseau face à un panel de laveries comparables (CA/m², taux d’occupation, disponibilité). 100 = tête de panel ; 50 = médiane."
+              />
+              <Kpi
+                label="Sites en alerte"
+                value={d.sitesInAlert}
+                valueClass="text-danger"
+                info="Nombre de sites avec au moins une anomalie ouverte : machine hors service, écart de caisse non réconcilié ou surconsommation détectée."
+              />
+              <Kpi
+                label="Redevances dues"
+                value={money0(d.royaltiesDue)}
+                info="Redevances de franchise dues sur la période, calculées comme CA du réseau × taux de redevance configuré. Modifiable via « Émettre la facture »."
+              />
             </div>
 
             <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[1.7fr_1fr]">
@@ -151,7 +169,7 @@ export function Reseau() {
                   <div className="mb-2.5 flex items-center justify-between">
                     <div className="text-sm font-bold">Redevances · oct.</div>
                     <button
-                      onClick={() => toast('Facture de redevances émise et envoyée aux franchisés.')}
+                      onClick={() => setShowInvoice(true)}
                       className="text-[11.5px] font-semibold text-primary hover:underline"
                     >
                       Émettre la facture
@@ -170,23 +188,142 @@ export function Reseau() {
                 <Card className="p-4">
                   <div className="mb-1.5 flex items-center justify-between">
                     <div className="text-sm font-bold">Standardisation</div>
-                    <button
-                      onClick={() => toast('Référentiel d’enseigne poussé aux 2 sites non conformes.', 'info')}
-                      className="text-[11.5px] font-semibold text-primary hover:underline"
-                    >
-                      Pousser le référentiel
-                    </button>
+                    <span className="inline-flex items-center gap-1.5 rounded-[7px] bg-surface-3 px-2.5 py-1 text-[11px] font-semibold text-fg-subtle">
+                      <Icon name="clock" size={12} />
+                      Bientôt disponible
+                    </span>
                   </div>
                   <div className="text-[12.5px] leading-[1.5] text-fg-muted">{d.standardizationLabel}</div>
+                  <div className="mt-2 text-[11px] text-fg-subtle">
+                    La diffusion automatique du référentiel d’enseigne arrive prochainement.
+                  </div>
                 </Card>
               </div>
             </div>
 
             <SitesManager sites={sitesQuery.data ?? []} onOpen={(id) => { selectSite(id); navigate({ to: '/' }); }} />
+
+            <RoyaltyInvoiceModal
+              open={showInvoice}
+              onClose={() => setShowInvoice(false)}
+              networkRevenue={d.revenue30d}
+              orgName={orgName}
+            />
           </>
         )}
       </QueryBoundary>
     </>
+  );
+}
+
+/**
+ * M9 — royalties invoice: back-office editing of the royalty rate + a preview
+ * and editable e-mail to franchisees before issuing. Sending is simulated in the
+ * mock; a live build posts to core.royalty_invoice + the mailer.
+ */
+function RoyaltyInvoiceModal({
+  open,
+  onClose,
+  networkRevenue,
+  orgName,
+}: {
+  open: boolean;
+  onClose: () => void;
+  networkRevenue: { amountCents: number; currency: string };
+  orgName: string;
+}) {
+  const { toast } = useToast();
+  const [ratePct, setRatePct] = useState('5');
+  const period = 'octobre 2025';
+  const amountCents = Math.round((networkRevenue.amountCents * (Number(ratePct) || 0)) / 100);
+  const amount = { amountCents, currency: networkRevenue.currency };
+
+  const [subject, setSubject] = useState(`Facture de redevances — ${period}`);
+  const [body, setBody] = useState('');
+  // Keep the e-mail body in sync with the computed figures until the user edits it.
+  const [bodyEdited, setBodyEdited] = useState(false);
+  const computedBody =
+    `Bonjour,\n\nVeuillez trouver la facture de redevances de franchise pour ${period}.\n\n` +
+    `Base (CA réseau 30 j) : ${money0(networkRevenue)}\n` +
+    `Taux de redevance : ${ratePct} %\n` +
+    `Montant dû : ${money0(amount)}\n\n` +
+    `Le règlement est attendu sous 30 jours.\n\nCordialement,\n${orgName}`;
+  const effectiveBody = bodyEdited ? body : computedBody;
+
+  const send = () => {
+    toast(`Facture de redevances (${money0(amount)} · ${ratePct} %) émise et transmise aux franchisés.`);
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      icon="bank"
+      title="Émettre la facture de redevances"
+      subtitle={`Période ${period} · aperçu et e-mail avant envoi`}
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button variant="primary" icon="arrowRight" onClick={send}>
+            Émettre &amp; envoyer
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div className="rounded-[11px] border border-border bg-surface-2 p-3.5">
+          <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.3px] text-fg-subtle">Aperçu de la facture</div>
+          <div className="flex items-center justify-between py-1 text-[12.5px]">
+            <span className="text-fg-muted">Base · CA réseau 30 j</span>
+            <span className="font-semibold tabular-nums">{money0(networkRevenue)}</span>
+          </div>
+          <label className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
+            <span className="text-fg-muted">Taux de redevance (back-office)</span>
+            <span className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.5"
+                value={ratePct}
+                onChange={(e) => setRatePct(e.target.value)}
+                className="h-[32px] w-[70px] rounded-[8px] border border-border bg-surface px-2 text-right tabular-nums outline-none focus:border-primary"
+              />
+              <span className="text-fg-subtle">%</span>
+            </span>
+          </label>
+          <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-[13px]">
+            <span className="font-semibold">Montant dû</span>
+            <span className="font-bold tabular-nums text-primary">{money0(amount)}</span>
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11.5px] font-semibold text-fg-subtle">Objet de l’e-mail</span>
+          <input
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="h-[38px] w-full rounded-[9px] border border-border bg-surface px-3 text-[13px] outline-none focus:border-primary"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11.5px] font-semibold text-fg-subtle">Corps de l’e-mail (modifiable)</span>
+          <textarea
+            value={effectiveBody}
+            onChange={(e) => {
+              setBodyEdited(true);
+              setBody(e.target.value);
+            }}
+            rows={9}
+            className="w-full resize-none rounded-[9px] border border-border bg-surface px-3 py-2 text-[12.5px] leading-[1.5] outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+    </Modal>
   );
 }
 
@@ -314,10 +451,23 @@ function Field({
   );
 }
 
-function Kpi({ label, value, valueClass }: { label: string; value: React.ReactNode; valueClass?: string }) {
+function Kpi({
+  label,
+  value,
+  valueClass,
+  info,
+}: {
+  label: string;
+  value: React.ReactNode;
+  valueClass?: string;
+  info?: string;
+}) {
   return (
     <Card className="flex-[1_1_160px] p-4">
-      <div className="text-[12.5px] font-semibold text-fg-muted">{label}</div>
+      <div className="flex items-center gap-1 text-[12.5px] font-semibold text-fg-muted">
+        {label}
+        {info && <InfoButton label={info} />}
+      </div>
       <div className={cn('mt-1.5 whitespace-nowrap text-[25px] font-bold tabular-nums', valueClass)}>{value}</div>
     </Card>
   );

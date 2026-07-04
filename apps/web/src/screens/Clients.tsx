@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import type { CampaignChannel, CustomersSummary, LoyaltyTier } from '@pilotage/shared';
+import type { CampaignChannel, CampaignStatus, CustomersSummary, LoyaltyTier } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
 import { money0, num, pct } from '@/lib/format';
-import { Button, Card, ScreenHeader, SectionCard } from '@/components/ui';
+import { Button, Card, Modal, Pill, ScreenHeader, SectionCard, Segmented, Switch } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
@@ -68,11 +69,12 @@ export function Clients() {
   );
 }
 
-/** Configurable loyalty program: earn rate + tier thresholds (mock persistence). */
+/** Configurable in-app loyalty program: earn rate + reward + tier thresholds. */
 function LoyaltyConfig({ d }: { d: CustomersSummary }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [pointsPerEuro, setPointsPerEuro] = useState('1');
+  const [reward, setReward] = useState('100 pts = 1 séchage offert');
   const [thresholds, setThresholds] = useState<Record<LoyaltyTier, string>>({
     bronze: '0',
     silver: '150',
@@ -118,6 +120,15 @@ function LoyaltyConfig({ d }: { d: CustomersSummary }) {
                 className="h-[32px] w-[80px] rounded-[8px] border border-border bg-surface px-2 text-right tabular-nums outline-none focus:border-primary"
               />
             </label>
+            <label className="flex flex-col gap-1 text-[12.5px]">
+              <span className="text-fg-muted">Récompense</span>
+              <input
+                value={reward}
+                onChange={(e) => setReward(e.target.value)}
+                placeholder="Ex. 100 pts = 1 cycle offert"
+                className="h-[32px] rounded-[8px] border border-border bg-surface px-2 text-[12.5px] outline-none focus:border-primary"
+              />
+            </label>
             {(['bronze', 'silver', 'gold'] as LoyaltyTier[]).map((tier) => (
               <label key={tier} className="flex items-center justify-between gap-2 text-[12.5px]">
                 <span className="text-fg-muted">Palier {TIER_LABEL[tier]} · à partir de</span>
@@ -136,8 +147,13 @@ function LoyaltyConfig({ d }: { d: CustomersSummary }) {
         ) : (
           <>
             <div className="text-[12.5px] leading-[1.5] text-fg-muted">
-              {pointsPerEuro} point / € dépensé · paliers Bronze ({thresholds.bronze}) / Argent ({thresholds.silver}) / Or (
-              {thresholds.gold}) pts. {pct(d.loyaltyRatePct, false)} des clients actifs disposent d'une cagnotte.
+              {pointsPerEuro} point / € dépensé · <span className="font-semibold text-fg">{reward}</span>. Paliers Bronze (
+              {thresholds.bronze}) / Argent ({thresholds.silver}) / Or ({thresholds.gold}) pts.{' '}
+              {pct(d.loyaltyRatePct, false)} des clients actifs disposent d'une cagnotte.
+            </div>
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-fg-subtle">
+              <Icon name="info" size={12} className="text-info" />
+              Programme géré nativement dans LavoPilot — aucun logiciel externe requis.
             </div>
             <div className="mt-3 flex gap-2">
               {d.loyaltyTiers.map((tier) => (
@@ -154,41 +170,160 @@ function LoyaltyConfig({ d }: { d: CustomersSummary }) {
   );
 }
 
-/** Campaigns list with activate/pause toggling (mock). */
+const CHANNELS: { value: CampaignChannel; label: string }[] = [
+  { value: 'sms', label: 'SMS' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'push', label: 'Push' },
+];
+
+/** Campaigns list with create + activate/pause toggling (API-backed). */
 function CampaignsCard({ d }: { d: CustomersSummary }) {
+  const api = useApi();
+  const qc = useQueryClient();
   const { toast } = useToast();
-  const [status, setStatus] = useState<Record<string, string>>(() =>
-    Object.fromEntries(d.campaigns.map((c) => [c.id, c.status])),
+  const [showNew, setShowNew] = useState(false);
+
+  const toggle = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: CampaignStatus }) => api.setCampaignStatus(id, status),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }),
+  });
+
+  return (
+    <>
+      <SectionCard
+        title="Campagnes"
+        action={
+          <Button variant="secondary" size="sm" icon="plus" onClick={() => setShowNew(true)}>
+            Nouvelle
+          </Button>
+        }
+      >
+        {d.campaigns.length === 0 ? (
+          <div className="px-[17px] py-6 text-center text-[12.5px] text-fg-subtle">Aucune campagne.</div>
+        ) : (
+          d.campaigns.map((c) => (
+            <div key={c.id} className="flex items-center gap-[11px] border-b border-border px-[17px] py-3 last:border-b-0">
+              <span className={cn('h-2 w-2 shrink-0 rounded-full', CHAN_DOT[c.channel])} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] font-semibold">{c.label}</div>
+                <div className="text-[11px] text-fg-subtle">{c.audienceLabel}</div>
+              </div>
+              <span className={cn('text-[11px] font-semibold', CHAN_C[c.status])}>{CHAN_LABEL[c.status]}</span>
+              <Switch
+                checked={c.status === 'active'}
+                disabled={toggle.isPending}
+                onChange={(on) => toggle.mutate({ id: c.id, status: on ? 'active' : 'draft' })}
+              />
+            </div>
+          ))
+        )}
+      </SectionCard>
+
+      <NewCampaignModal
+        open={showNew}
+        onClose={() => setShowNew(false)}
+        onCreated={(label) => {
+          qc.invalidateQueries({ queryKey: ['customers'] });
+          toast(`Campagne « ${label} » créée.`);
+        }}
+      />
+    </>
   );
-  const toggle = (id: string, label: string) => {
-    setStatus((s) => {
-      const next = s[id] === 'active' ? 'draft' : 'active';
-      toast(next === 'active' ? `Campagne « ${label} » activée.` : `Campagne « ${label} » mise en pause.`);
-      return { ...s, [id]: next };
+}
+
+function NewCampaignModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (label: string) => void;
+}) {
+  const api = useApi();
+  const [label, setLabel] = useState('');
+  const [channel, setChannel] = useState<CampaignChannel>('sms');
+  const [audienceLabel, setAudienceLabel] = useState('');
+  const [status, setStatus] = useState<CampaignStatus>('draft');
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.createCampaign({ label: label.trim(), channel, audienceLabel: audienceLabel.trim() || undefined, status }),
+  });
+
+  const reset = () => {
+    setLabel('');
+    setChannel('sms');
+    setAudienceLabel('');
+    setStatus('draft');
+    create.reset();
+  };
+
+  const valid = label.trim().length >= 2;
+  const submit = () => {
+    if (!valid) return;
+    create.mutate(undefined, {
+      onSuccess: () => {
+        onCreated(label.trim());
+        reset();
+        onClose();
+      },
     });
   };
+
+  const fieldCls = 'h-[38px] w-full rounded-[9px] border border-border bg-surface px-3 text-[13px] outline-none focus:border-primary';
+
   return (
-    <SectionCard title="Campagnes">
-      {d.campaigns.map((c) => {
-        const st = status[c.id] ?? c.status;
-        return (
-          <div key={c.id} className="flex items-center gap-[11px] border-b border-border px-[17px] py-3 last:border-b-0">
-            <span className={cn('h-2 w-2 rounded-full', CHAN_DOT[c.channel])} />
-            <div className="flex-1">
-              <div className="text-[12.5px] font-semibold">{c.label}</div>
-              <div className="text-[11px] text-fg-subtle">{c.audienceLabel}</div>
-            </div>
-            <span className={cn('text-[11px] font-semibold', CHAN_C[st])}>{CHAN_LABEL[st]}</span>
-            <button
-              onClick={() => toggle(c.id, c.label)}
-              className="rounded-[7px] border border-border px-2 py-1 text-[11px] font-semibold text-fg-muted hover:border-border-strong"
-            >
-              {st === 'active' ? 'Pause' : 'Activer'}
-            </button>
-          </div>
-        );
-      })}
-    </SectionCard>
+    <Modal
+      open={open}
+      onClose={onClose}
+      icon="users"
+      title="Nouvelle campagne"
+      subtitle="Ciblez un segment sur SMS, e-mail ou push."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button variant="primary" icon="check" onClick={submit} disabled={!valid || create.isPending}>
+            {create.isPending ? 'Création…' : 'Créer la campagne'}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11.5px] font-semibold text-fg-subtle">Intitulé</span>
+          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ex. Relance clients à risque" className={fieldCls} maxLength={80} />
+        </label>
+        <div>
+          <span className="mb-1.5 block text-[11.5px] font-semibold text-fg-subtle">Canal</span>
+          <Segmented value={channel} onChange={setChannel} options={CHANNELS} size="sm" />
+        </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11.5px] font-semibold text-fg-subtle">Audience (optionnel)</span>
+          <input value={audienceLabel} onChange={(e) => setAudienceLabel(e.target.value)} placeholder="Ex. 341 clients à risque" className={fieldCls} maxLength={80} />
+        </label>
+        <div>
+          <span className="mb-1.5 block text-[11.5px] font-semibold text-fg-subtle">État initial</span>
+          <Segmented
+            value={status}
+            onChange={setStatus}
+            size="sm"
+            options={[
+              { value: 'draft', label: 'Brouillon' },
+              { value: 'scheduled', label: 'Programmée' },
+              { value: 'active', label: 'Active' },
+            ]}
+          />
+        </div>
+        <div className="flex items-center gap-2 text-[11.5px] text-fg-subtle">
+          <Pill tone="info">Aperçu</Pill>
+          {label.trim() || 'Nouvelle campagne'} · {CHANNELS.find((c) => c.value === channel)?.label}
+        </div>
+        {create.isError && <div className="text-[12px] font-semibold text-danger">Échec de la création — réessayez.</div>}
+      </div>
+    </Modal>
   );
 }
 

@@ -31,5 +31,5 @@ export default defineConfig({
       '@pilotage/api-client': resolve(__dirname, '../../packages/api-client/src/index.ts'),
     },
   },
-  server: { port: 5173, host: true, strictPort: true },
+  server: { port: Number(process.env.PORT) || 5173, host: true, strictPort: false },
 });

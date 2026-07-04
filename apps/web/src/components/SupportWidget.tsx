@@ -37,6 +37,7 @@ export function SupportWidget() {
   const [body, setBody] = useState('');
   const [category, setCategory] = useState<SupportTicketCategory>('technical');
   const [priority, setPriority] = useState<SupportTicketPriority>('normal');
+  const [showErrors, setShowErrors] = useState(false);
 
   const send = useMutation({
     mutationFn: () => api.createSupportTicket({ subject, body, category, priority }),
@@ -47,6 +48,7 @@ export function SupportWidget() {
     setBody('');
     setCategory('technical');
     setPriority('normal');
+    setShowErrors(false);
     send.reset();
   };
 
@@ -55,7 +57,17 @@ export function SupportWidget() {
     if (send.isSuccess) reset();
   };
 
-  const valid = subject.trim().length >= 3 && body.trim().length > 0;
+  const subjectOk = subject.trim().length >= 3;
+  const bodyOk = body.trim().length > 0;
+  const valid = subjectOk && bodyOk;
+
+  const submit = () => {
+    if (!valid) {
+      setShowErrors(true);
+      return;
+    }
+    send.mutate();
+  };
 
   return (
     <>
@@ -109,7 +121,7 @@ export function SupportWidget() {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Objet de votre demande"
-                className={field}
+                className={cn(field, showErrors && !subjectOk && 'border-danger')}
                 maxLength={160}
               />
               <div className="flex gap-2">
@@ -143,9 +155,14 @@ export function SupportWidget() {
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Décrivez votre problème ou votre question…"
                 rows={4}
-                className={cn(field, 'resize-none')}
+                className={cn(field, 'resize-none', showErrors && !bodyOk && 'border-danger')}
                 maxLength={5000}
               />
+              {showErrors && !valid && (
+                <div className="text-[12px] font-semibold text-danger">
+                  Renseignez un objet (3 caractères min.) et un message avant l’envoi.
+                </div>
+              )}
               {send.isError && (
                 <div className="text-[12px] font-semibold text-danger">
                   Échec de l'envoi — réessayez.
@@ -154,8 +171,8 @@ export function SupportWidget() {
               <Button
                 variant="primary"
                 icon="arrowRight"
-                onClick={() => send.mutate()}
-                disabled={!valid || send.isPending}
+                onClick={submit}
+                disabled={send.isPending}
               >
                 {send.isPending ? 'Envoi…' : 'Envoyer au support'}
               </Button>

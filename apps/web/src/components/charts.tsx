@@ -111,6 +111,42 @@ export function Gauge({ value, max }: { value: number; max: number }) {
   );
 }
 
+/**
+ * Vertical stacked bars — one bar per time bucket, each split into colored
+ * segments. Used for the machine state-repartition over a period. When every
+ * bar shares the same total it reads as a 100%-composition chart.
+ */
+export function StackedBars({
+  bars,
+  height = 150,
+  maxTotal,
+}: {
+  bars: { label: string; total: number; segments: { color: string; value: number }[] }[];
+  height?: number;
+  maxTotal?: number;
+}) {
+  const max = maxTotal ?? Math.max(1, ...bars.map((b) => b.total));
+  return (
+    <div className="flex items-end gap-px" style={{ height }}>
+      {bars.map((b, i) => (
+        <div
+          key={i}
+          title={b.label}
+          className="flex flex-1 flex-col justify-end overflow-hidden rounded-[3px] bg-surface-3"
+          style={{ height: `${(b.total / max) * 100}%` }}
+        >
+          {b.segments.map((s, j) => (
+            <div
+              key={j}
+              style={{ height: `${b.total ? (s.value / b.total) * 100 : 0}%`, background: s.color }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Map a 0..1 intensity to the energy heatmap cell background. */
 export function heatCellStyle(v: number): { background: string; color: string } {
   return {

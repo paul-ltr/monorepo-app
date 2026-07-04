@@ -50,6 +50,12 @@ const schema = z.object({
   GRDF_ADICT_TOKEN_URL: z
     .string()
     .default('https://sofit-sso-oidc.grdf.fr/openam/oauth2/access_token?realm=/externeGrdf'),
+
+  // Pennylane (accounting, OAuth 2.0). Unset in dev → the connector runs in
+  // simulation mode (self-issued consent code, no live token exchange).
+  PENNYLANE_CLIENT_ID: z.string().optional(),
+  PENNYLANE_CLIENT_SECRET: z.string().optional(),
+  PENNYLANE_SCOPE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

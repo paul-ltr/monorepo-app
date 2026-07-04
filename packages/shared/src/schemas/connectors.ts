@@ -116,3 +116,41 @@ export const grdfHistoryInput = z.object({
   pce: z.string().min(1),
 });
 export type GrdfHistoryInput = z.infer<typeof grdfHistoryInput>;
+
+// ─────────────────────────── Pennylane (accounting) ────────────────────────
+
+/** Current Pennylane connection state for the Finances / Settings screens. */
+export const pennylaneStatus = z.object({
+  connected: z.boolean(),
+  /** Connected company name (from Pennylane), when known. */
+  company: z.string().nullable(),
+  /** True when no Pennylane client is configured and the flow is simulated. */
+  simulated: z.boolean(),
+  /** Access-token expiry (ISO), when connected. */
+  expiresAt: z.string().nullable(),
+});
+export type PennylaneStatus = z.infer<typeof pennylaneStatus>;
+
+/** Step 1 — build the OAuth authorize URL and register the state. */
+export const pennylaneAuthorizeResult = z.object({
+  authorizeUrl: z.string(),
+  state: z.string(),
+  simulated: z.boolean(),
+});
+export type PennylaneAuthorizeResult = z.infer<typeof pennylaneAuthorizeResult>;
+
+/** Step 2 — after the OAuth redirect returns, exchange the code for tokens. */
+export const pennylaneCompleteInput = z.object({
+  state: z.string().min(1),
+  code: z.string().optional(),
+});
+export type PennylaneCompleteInput = z.infer<typeof pennylaneCompleteInput>;
+
+export const pennylaneCompleteResult = z.object({
+  status: z.enum(['connected', 'error']),
+  company: z.string().nullable(),
+  message: z.string(),
+  simulated: z.boolean(),
+  expiresAt: z.string().nullable(),
+});
+export type PennylaneCompleteResult = z.infer<typeof pennylaneCompleteResult>;

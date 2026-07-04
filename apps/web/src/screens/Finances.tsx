@@ -1,11 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { FinanceSummary } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
 import { money0 } from '@/lib/format';
 import { downloadCsv, downloadText } from '@/lib/download';
-import { Button, Card, ScreenHeader, SectionCard } from '@/components/ui';
+import { Button, Card, Pill, ScreenHeader, SectionCard } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
@@ -17,7 +18,6 @@ function marginTone(p: number) {
 export function Finances() {
   const { t } = useTranslation();
   const api = useApi();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const query = useQuery({ queryKey: ['finance'], queryFn: () => api.getFinance() });
 
@@ -105,28 +105,111 @@ export function Finances() {
                   </div>
                 </Card>
 
-                <SectionCard title="Connecteurs comptables">
-                  {d.connectors.map((c) => (
-                    <div key={c.provider} className="flex items-center gap-[11px] border-b border-border px-[17px] py-3 last:border-b-0">
-                      <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-surface-3 text-[11px] font-bold text-fg-muted">
-                        {c.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-[12.5px] font-semibold">{c.name}</div>
-                        <div className="text-[11px] text-fg-subtle">Non connecté</div>
-                      </div>
-                      <button onClick={() => navigate({ to: '/settings' })} className="text-[11.5px] font-semibold text-primary">
-                        Connecter
-                      </button>
-                    </div>
-                  ))}
-                </SectionCard>
+                <ConnectorsCard />
               </div>
             </div>
           </>
         )}
       </QueryBoundary>
     </>
+  );
+}
+
+/** Accounting connectors: Pennylane (live OAuth) + Sage (coming soon). */
+function ConnectorsCard() {
+  const api = useApi();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const status = useQuery({ queryKey: ['pennylane-status'], queryFn: () => api.pennylaneStatus() });
+
+  const connect = useMutation({
+    mutationFn: async () => {
+      const res = await api.pennylaneAuthorize();
+      if (res.simulated) {
+        // No live client → complete the simulated consent inline.
+        return api.pennylaneComplete({ state: res.state });
+      }
+      // Live OAuth → hand off to Pennylane; the backend callback returns to /finances.
+      window.location.href = res.authorizeUrl;
+      return null;
+    },
+    onSuccess: (r) => {
+      if (r) {
+        qc.invalidateQueries({ queryKey: ['pennylane-status'] });
+        toast(r.message);
+      }
+    },
+  });
+
+  const disconnect = useMutation({
+    mutationFn: () => api.pennylaneDisconnect(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pennylane-status'] });
+      toast('Pennylane déconnecté.');
+    },
+  });
+
+  // Return path from the live OAuth redirect (?pennylane=ok|error).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get('pennylane');
+    if (!r) return;
+    if (r === 'ok') {
+      qc.invalidateQueries({ queryKey: ['pennylane-status'] });
+      toast('Connexion Pennylane établie.');
+    } else {
+      toast('Échec de la connexion Pennylane.', 'warn');
+    }
+    params.delete('pennylane');
+    const qs = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+  }, [qc, toast]);
+
+  const s = status.data;
+  const connected = s?.connected ?? false;
+
+  return (
+    <SectionCard title="Connecteurs comptables">
+      {/* Pennylane */}
+      <div className="flex items-center gap-[11px] border-b border-border px-[17px] py-3">
+        <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-primary-soft text-[11px] font-bold text-primary">
+          PL
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[12.5px] font-semibold">
+            Pennylane
+            {s?.simulated && <Pill tone="neutral">bac à sable</Pill>}
+          </div>
+          <div className="text-[11px] text-fg-subtle">
+            {connected ? `Connecté${s?.company ? ` · ${s.company}` : ''}` : 'Non connecté · OAuth 2.0'}
+          </div>
+        </div>
+        {connected ? (
+          <Button variant="secondary" size="sm" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+            Déconnecter
+          </Button>
+        ) : (
+          <Button variant="primary" size="sm" onClick={() => connect.mutate()} disabled={connect.isPending}>
+            {connect.isPending ? 'Connexion…' : 'Connecter'}
+          </Button>
+        )}
+      </div>
+
+      {/* Sage — coming soon */}
+      <div className="flex items-center gap-[11px] px-[17px] py-3">
+        <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-surface-3 text-[11px] font-bold text-fg-muted">
+          SA
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-fg-muted">Sage</div>
+          <div className="text-[11px] text-fg-subtle">Intégration comptable</div>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-[7px] bg-surface-3 px-2.5 py-1 text-[11px] font-semibold text-fg-subtle">
+          <Icon name="clock" size={12} />
+          Bientôt disponible
+        </span>
+      </div>
+    </SectionCard>
   );
 }
 

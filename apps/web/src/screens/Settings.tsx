@@ -4,11 +4,16 @@ import { useTranslation } from 'react-i18next';
 import type { ConnectorHistory, ConnectorStatus, EnedisMeterKind } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
 import { useScope } from '@/lib/scope';
-import { Button, Card, ScreenHeader, SectionCard } from '@/components/ui';
+import { useAppParams, emptySiteParams, type SiteParams } from '@/lib/params';
+import { Button, Card, ScreenHeader, SectionCard, Segmented, Switch } from '@/components/ui';
 import { Icon } from '@/components/Icon';
+import { AddressField } from '@/components/AddressField';
 import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
+
+/** Keep only the leading 14 digits (Enedis PDL / GRDF PCE format). */
+const digits14 = (s: string) => s.replace(/\D/g, '').slice(0, 14);
 
 const TONE: Record<ConnectorStatus, { label: string; c: string; bg: string; btn: string; solid: boolean }> = {
   connected: { label: 'Connecté', c: 'text-ok', bg: 'bg-ok-soft', btn: 'Gérer', solid: false },
@@ -47,11 +52,15 @@ export function Settings() {
                 Secrets Manager — jamais en clair.
               </div>
               <div className="flex flex-col gap-5">
-                {d.connectors.map((cat) => (
+                {d.connectors.map((cat) => {
+                  // Enedis is configured per site (PDL entry below), not as a tool connector.
+                  const items = cat.items.filter((it) => !/enedis/i.test(it.name));
+                  if (items.length === 0) return null;
+                  return (
                   <div key={cat.group}>
                     <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.5px] text-fg-subtle">{cat.group}</div>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3">
-                      {cat.items.map((it) => {
+                      {items.map((it) => {
                         const status = overrides[it.id] ?? it.status;
                         const tone = TONE[status];
                         const active = status === 'not_connected' || status === 'error';
@@ -90,10 +99,13 @@ export function Settings() {
                       })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
 
+            <SiteParamsSection />
+            <BrevoConfig />
             <EnedisConfig />
             <GrdfConfig />
 
@@ -337,25 +349,27 @@ function EnedisConfig() {
         {/* Step 0 — meter kind + input mode + fields */}
         <div className="flex flex-wrap gap-2">
           <Segmented
+            ariaLabel="Type de compteur"
             value={kind}
             onChange={(k) => {
-              setKind(k as MeterKind);
+              setKind(k);
               reset();
             }}
             options={[
-              ['pdl', 'Linky · PDL/PRM'],
-              ['c4', 'Grand tertiaire · C4'],
+              { value: 'pdl', label: 'Linky · PDL/PRM' },
+              { value: 'c4', label: 'Grand tertiaire · C4' },
             ]}
           />
           <Segmented
+            ariaLabel="Mode de saisie"
             value={mode}
             onChange={(m) => {
-              setMode(m as EnedisMode);
+              setMode(m);
               reset();
             }}
             options={[
-              ['prm', 'Par numéro'],
-              ['address', 'Par adresse'],
+              { value: 'prm', label: 'Par numéro' },
+              { value: 'address', label: 'Par adresse' },
             ]}
           />
         </div>
@@ -376,26 +390,34 @@ function EnedisConfig() {
               <input
                 value={ref}
                 onChange={(e) => {
-                  setRef(e.target.value);
+                  setRef(kind === 'pdl' ? digits14(e.target.value) : e.target.value);
                   reset();
                 }}
                 inputMode={kind === 'pdl' ? 'numeric' : 'text'}
                 placeholder={kind === 'pdl' ? '12345678901234' : 'ex. GRD-C4-0098-XX'}
                 className={fieldCls('flex-1 font-mono')}
               />
+              {kind === 'pdl' && (
+                <span className={cn('text-[10.5px]', ref.length === 14 ? 'text-ok' : 'text-fg-subtle')}>
+                  {ref.length}/14 chiffres
+                </span>
+              )}
             </label>
           ) : (
             <label className="flex flex-1 flex-col gap-1">
               <span className="text-[11px] font-semibold text-fg-subtle">Adresse du point de livraison</span>
-              <input
+              <AddressField
                 value={address}
-                onChange={(e) => {
-                  setAddress(e.target.value);
+                onChange={(v) => {
+                  setAddress(v);
                   reset();
                 }}
-                placeholder="12 rue des Lilas, 69003 Lyon"
-                className={fieldCls('flex-1')}
+                onSelect={() => reset()}
+                className="flex-1"
               />
+              <span className="text-[10.5px] text-fg-subtle">
+                Recherche via l’API Adresse (data.gouv.fr) — le PDL est confirmé au consentement Enedis.
+              </span>
             </label>
           )}
           <Button
@@ -490,34 +512,6 @@ function EnedisConfig() {
   );
 }
 
-/** Compact segmented toggle used by the connector forms. */
-function Segmented({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: [string, string][];
-}) {
-  return (
-    <div className="inline-flex w-fit rounded-[9px] border border-border p-[3px]">
-      {options.map(([k, l]) => (
-        <button
-          key={k}
-          onClick={() => onChange(k)}
-          className={cn(
-            'h-[30px] rounded-[7px] px-[13px] text-[12.5px] font-semibold',
-            value === k ? 'bg-primary text-primary-fg' : 'text-fg-muted',
-          )}
-        >
-          {l}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /**
  * M5 — GRDF ADICT onboarding (gas). No per-customer consent redirect: the
  * aggregator authenticates with OAuth2 client_credentials (bac à sable), tests
@@ -581,13 +575,16 @@ function GrdfConfig() {
             <input
               value={pce}
               onChange={(e) => {
-                setPce(e.target.value);
+                setPce(digits14(e.target.value));
                 reset();
               }}
               inputMode="numeric"
               placeholder="12345678901234"
               className={fieldCls('flex-1 font-mono')}
             />
+            <span className={cn('text-[10.5px]', pce.length === 14 ? 'text-ok' : 'text-fg-subtle')}>
+              {pce.length}/14 chiffres
+            </span>
           </label>
           <Button
             variant="secondary"
@@ -652,6 +649,188 @@ function GrdfConfig() {
             votre compteur gaz, présent sur la facture GRDF. La connexion utilise l'API <strong>GRDF ADICT</strong> ; les
             identifiants du bac à sable sont préconfigurés côté serveur.
           </div>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+/**
+ * M12 — per-site parameters. An admin picks a site and edits its address (via the
+ * gouv BAN autocomplete) and energy identifiers (PDL / PCE, 14 digits). Stored
+ * client-side per site; a live build persists to core.site / connector_config.
+ */
+function SiteParamsSection() {
+  const { sites } = useScope();
+  const { toast } = useToast();
+  const [params, setParams] = useAppParams();
+  const [siteId, setSiteId] = useState('');
+  const [draft, setDraft] = useState<SiteParams>(emptySiteParams());
+
+  // Default to the first site once the list loads.
+  useEffect(() => {
+    if (!siteId && sites.length) setSiteId(sites[0]!.id);
+  }, [sites, siteId]);
+
+  // Load the selected site's saved params (falling back to its known address).
+  useEffect(() => {
+    if (!siteId) return;
+    const stored = params.sites[siteId];
+    const site = sites.find((s) => s.id === siteId);
+    setDraft(stored ?? { ...emptySiteParams(), address: site?.address ?? '' });
+  }, [siteId]);
+
+  const pdlOk = draft.pdl === '' || draft.pdl.length === 14;
+  const pceOk = draft.pce === '' || draft.pce.length === 14;
+
+  const save = () => {
+    if (!siteId) return;
+    setParams({ sites: { [siteId]: draft } });
+    toast(`Paramètres du site « ${sites.find((s) => s.id === siteId)?.name ?? ''} » enregistrés.`);
+  };
+
+  return (
+    <SectionCard
+      className="mb-[18px]"
+      title="Paramètres par site"
+      subtitle="Adresse et identifiants énergie (PDL / PCE) configurés site par site."
+    >
+      <div className="flex flex-col gap-4 p-[18px]">
+        {/* Clean site picker (replaces the previous cramped dropdown). */}
+        <div className="flex flex-wrap gap-2">
+          {sites.map((s) => {
+            const active = s.id === siteId;
+            const configured = !!params.sites[s.id]?.pdl || !!params.sites[s.id]?.pce;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setSiteId(s.id)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-[9px] border px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+                  active
+                    ? 'border-primary bg-primary text-primary-fg'
+                    : 'border-border bg-surface text-fg-muted hover:border-border-strong',
+                )}
+              >
+                {configured && <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-white' : 'bg-ok')} />}
+                {s.name}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+          <label className="flex flex-col gap-1 md:col-span-2">
+            <span className="text-[11px] font-semibold text-fg-subtle">Adresse du site</span>
+            <AddressField value={draft.address} onChange={(v) => setDraft((d) => ({ ...d, address: v }))} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-fg-subtle">PDL / PRM Enedis (14 chiffres)</span>
+            <input
+              value={draft.pdl}
+              onChange={(e) => setDraft((d) => ({ ...d, pdl: digits14(e.target.value) }))}
+              inputMode="numeric"
+              placeholder="12345678901234"
+              className={fieldCls('font-mono')}
+            />
+            <span className={cn('text-[10.5px]', draft.pdl === '' ? 'text-fg-subtle' : pdlOk ? 'text-ok' : 'text-danger')}>
+              {draft.pdl.length}/14 chiffres
+            </span>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-fg-subtle">PCE GRDF (14 chiffres)</span>
+            <input
+              value={draft.pce}
+              onChange={(e) => setDraft((d) => ({ ...d, pce: digits14(e.target.value) }))}
+              inputMode="numeric"
+              placeholder="12345678901234"
+              className={fieldCls('font-mono')}
+            />
+            <span className={cn('text-[10.5px]', draft.pce === '' ? 'text-fg-subtle' : pceOk ? 'text-ok' : 'text-danger')}>
+              {draft.pce.length}/14 chiffres
+            </span>
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button variant="primary" icon="check" onClick={save} disabled={!siteId || !pdlOk || !pceOk}>
+            Enregistrer le site
+          </Button>
+          <span className="text-[11.5px] text-fg-subtle">
+            Adresse recherchée via l’API Adresse (data.gouv.fr). Le PDL est confirmé au consentement Enedis ci-dessous.
+          </span>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+/**
+ * M12 — Brevo (messaging) self-service configuration. The admin sets the sender
+ * identity and API key. The key itself is never stored client-side — only the
+ * fact that one was provided (a live build writes it to Secrets Manager).
+ */
+function BrevoConfig() {
+  const { toast } = useToast();
+  const [params, setParams] = useAppParams();
+  const b = params.brevo;
+  const [enabled, setEnabled] = useState(b.enabled);
+  const [senderName, setSenderName] = useState(b.senderName);
+  const [senderEmail, setSenderEmail] = useState(b.senderEmail);
+  const [apiKey, setApiKey] = useState('');
+
+  const save = () => {
+    setParams({
+      brevo: {
+        enabled,
+        senderName: senderName.trim(),
+        senderEmail: senderEmail.trim(),
+        keyConfigured: b.keyConfigured || apiKey.trim().length > 0,
+      },
+    });
+    setApiKey('');
+    toast('Configuration Brevo enregistrée.');
+  };
+
+  return (
+    <SectionCard
+      className="mb-[18px]"
+      title="Brevo · messagerie (SMS / e-mail)"
+      subtitle="Paramétrez l’expéditeur et la clé API utilisés pour les notifications clients."
+    >
+      <div className="flex flex-col gap-4 p-[18px]">
+        <Switch checked={enabled} onChange={setEnabled} label="Activer l’envoi via Brevo" />
+        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-fg-subtle">Nom de l’expéditeur</span>
+            <input value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="LavoPilot" className={fieldCls()} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-fg-subtle">E-mail expéditeur</span>
+            <input value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} type="email" placeholder="no-reply@laverie.fr" className={fieldCls()} />
+          </label>
+          <label className="flex flex-col gap-1 md:col-span-2">
+            <span className="text-[11px] font-semibold text-fg-subtle">
+              Clé API Brevo {b.keyConfigured && <span className="text-ok">· configurée ✓</span>}
+            </span>
+            <input
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              type="password"
+              placeholder={b.keyConfigured ? '•••••••••• (laisser vide pour conserver)' : 'xkeysib-…'}
+              className={fieldCls('font-mono')}
+              autoComplete="off"
+            />
+          </label>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="primary" icon="check" onClick={save}>
+            Enregistrer
+          </Button>
+          <span className="flex items-center gap-1.5 text-[11.5px] text-fg-subtle">
+            <Icon name="shield" size={13} className="text-fg-subtle" />
+            La clé est transmise au coffre de secrets — jamais stockée en clair dans le navigateur.
+          </span>
         </div>
       </div>
     </SectionCard>
