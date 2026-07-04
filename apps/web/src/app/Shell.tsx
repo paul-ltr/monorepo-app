@@ -8,6 +8,7 @@ import { Menu, MenuItem } from '@/components/Menu';
 import { FreshnessBadge } from '@/components/state';
 import { useToast } from '@/components/Toast';
 import { useApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useSession, useBranding } from '@/lib/hooks';
 import { useScope } from '@/lib/scope';
 import { cn } from '@/lib/cn';
@@ -21,6 +22,14 @@ interface NavItem {
 
 function useNav(): { main: NavItem[]; groups: { head: string; items: NavItem[] }[]; settings: NavItem } {
   const { t } = useTranslation();
+  const { isAll } = useScope();
+  const relation: NavItem[] = [{ to: '/clients', icon: 'users', label: t('nav.clients') }];
+  // Consolidated finance and network/benchmark are group-only views — hide them
+  // when the perimeter is narrowed to a single site (site-specific pages only).
+  if (isAll) {
+    relation.push({ to: '/finances', icon: 'bank', label: t('nav.finances') });
+    relation.push({ to: '/reseau', icon: 'network', label: t('nav.reseau') });
+  }
   return {
     main: [{ to: '/', icon: 'dashboard', label: t('nav.overview') }],
     groups: [
@@ -34,14 +43,7 @@ function useNav(): { main: NavItem[]; groups: { head: string; items: NavItem[] }
           { to: '/pricing', icon: 'tag', label: t('nav.pricing') },
         ],
       },
-      {
-        head: t('nav.relation'),
-        items: [
-          { to: '/clients', icon: 'users', label: t('nav.clients') },
-          { to: '/finances', icon: 'bank', label: t('nav.finances') },
-          { to: '/reseau', icon: 'network', label: t('nav.reseau') },
-        ],
-      },
+      { head: t('nav.relation'), items: relation },
     ],
     settings: { to: '/settings', icon: 'gear', label: t('nav.settings') },
   };
@@ -67,7 +69,7 @@ function NavLink({ item }: { item: NavItem }) {
   );
 }
 
-function Sidebar({ orgName }: { orgName: string }) {
+function Sidebar() {
   const nav = useNav();
   return (
     <aside className="flex w-[248px] flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg">
@@ -76,12 +78,11 @@ function Sidebar({ orgName }: { orgName: string }) {
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[9px]"
           style={{ background: 'linear-gradient(135deg,#5B8DEF,#1B4DB3)' }}
         >
-          <Icon name="logo" size={17} className="text-white" strokeWidth={2.2} />
+          <img src="/brand/mark-white.svg" alt="LavoPilot" width={20} height={20} />
         </div>
         <div className="min-w-0">
-          <div className="text-[15px] font-bold leading-[1.1] tracking-[-0.2px] text-white">Pilotage</div>
-          <div className="truncate text-[10.5px] font-medium uppercase tracking-[0.3px] text-sidebar-muted">
-            {orgName}
+          <div className="text-[16px] font-bold leading-[1.1] tracking-[-0.2px] text-white">
+            Lavo<span className="text-[#8FB4F5]">Pilot</span>
           </div>
         </div>
       </div>
@@ -305,8 +306,42 @@ function Topbar({ orgName, orgInitials }: { orgName: string; orgInitials: string
           </span>
         )}
       </button>
-      <Avatar initials="SD" />
+      <UserMenu />
     </header>
+  );
+}
+
+function UserMenu() {
+  const { t } = useTranslation();
+  const { user, logout } = useAuth();
+  return (
+    <Menu
+      align="right"
+      trigger={({ toggle }) => (
+        <button onClick={toggle} className="rounded-full" aria-label={user?.email ?? 'compte'}>
+          <Avatar initials="SD" />
+        </button>
+      )}
+    >
+      {(close) => (
+        <div className="min-w-[180px]">
+          {user && (
+            <div className="truncate border-b border-border px-3 py-2 text-[12px] text-fg-muted">
+              {user.email}
+            </div>
+          )}
+          <MenuItem
+            onClick={() => {
+              close();
+              logout();
+            }}
+          >
+            <Icon name="power" size={15} className="text-fg-muted" />
+            {t('auth.logout')}
+          </MenuItem>
+        </div>
+      )}
+    </Menu>
   );
 }
 
@@ -331,7 +366,7 @@ function ScopeBanner() {
 export function Shell() {
   useBranding();
   const session = useSession();
-  const orgName = session.data?.tenant.name ?? 'Groupe Lavéo';
+  const orgName = session.data?.tenant.name ?? 'Groupe Lavomatique';
   const orgInitials = orgName
     .split(/\s+/)
     .map((w) => w[0])
@@ -341,7 +376,7 @@ export function Shell() {
 
   return (
     <div className={cn('flex h-screen overflow-hidden bg-bg text-fg')}>
-      <Sidebar orgName={orgName} />
+      <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar orgName={orgName} orgInitials={orgInitials} />
         <ScopeBanner />

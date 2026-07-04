@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LavoPilot — L'ERP intelligent des laveries automatiques</title>
+<meta name="description" content="LavoPilot réunit supervision des machines, monétique, énergie et maintenance dans une seule plateforme, pilotée par l'IA.">
+<link rel="icon" type="image/png" sizes="32x32" href="./brand/mark-32.png">
+<link rel="apple-touch-icon" href="./brand/appicon-256.png">
+<meta property="og:title" content="LavoPilot — L'ERP intelligent des laveries automatiques">
+<meta property="og:description" content="Supervision, recettes, énergie et maintenance en un seul endroit. Piloté par l'IA.">
+<meta property="og:type" content="website">
+<!-- Wired at deploy time (Terraform passes the real platform + API URLs). -->
+<meta name="lavopilot:app-login" content="https://app.lavopilot.fr/login">
+<meta name="lavopilot:leads-endpoint" content="https://api.lavopilot.fr/public/leads">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#FFFFFF;--surface:#FFFFFF;--surface-2:#F7F9FB;--surface-3:#F1F4F7;--ink-panel:#0E1A2E;
+ --fg:#0F1722;--fg-muted:#566273;--fg-subtle:#8893A2;
+ --border:#E6E9EE;--border-strong:#D5DAE2;
+ --primary:#1B4DB3;--primary-strong:#163F94;--primary-soft:#E9F0FB;--on-primary:#FFFFFF;
+ --ok:#1A7F46;--ok-soft:#E5F3EA;--energy:#0C8579;--energy-soft:#E0F2EF;--warn:#B5640C;
+ --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+ --shadow-lg:0 24px 60px -18px rgba(16,24,40,.30);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:var(--primary-soft)}
+a{color:inherit}
+@keyframes pl-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes pl-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* hover helpers (replace proprietary style-hover) */
+.navlnk:hover{background:var(--surface-2);color:var(--fg)!important}
+.btn-primary:hover{background:var(--primary-strong)!important}
+.btn-ghost:hover{background:var(--surface-2)!important}
+.btn-white:hover{background:#EEF2F7!important}
+.card:hover{border-color:var(--border-strong)!important;box-shadow:var(--shadow-lg)}
+.footlnk:hover{color:var(--fg)!important}
+.cta-ghost:hover{background:rgba(255,255,255,.08)!important}
+input:focus,textarea:focus{outline:none;border-color:var(--primary)!important;box-shadow:0 0 0 3px var(--primary-soft)}
+@media(max-width:900px){
+ .grid-2,.grid-hero,.grid-ai,.grid-roi{grid-template-columns:1fr!important}
+ .grid-3{grid-template-columns:1fr 1fr!important}
+ .grid-4{grid-template-columns:1fr 1fr!important}
+ nav.mainnav{display:none!important}
+}
+@media(max-width:560px){.grid-3,.grid-4{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const DICT = {
+  fr: {
+    nav: { features:'Fonctionnalités', ai:'IA', login:'Se connecter', demo:'Réserver une démo' },
+    back: 'Retour à l’accueil',
+    hero: {
+      badge:'Nouveau · Copilote IA intégré',
+      title:'L’ERP intelligent qui pilote vos laveries.',
+      sub:'LavoPilot réunit supervision des machines, monétique, énergie et maintenance dans une seule plateforme. L’IA analyse votre exploitation en continu et déclenche les bonnes actions.',
+      cta1:'Réserver une démo', cta2:'Voir les fonctionnalités',
+      point1:'Sans engagement', point2:'Mise en service en 48 h', point3:'Hébergé en France',
+      mockRev:'Recettes du jour', mockUp:'Disponibilité', mockMachines:'machines', mockChart:'Recettes · 7 jours', mockDays:'jours',
+      mockAi:'Copilote — 3 sèche-linge sous-utilisés à Vénissieux : baisse de tarif suggérée −0,50 €.'
+    },
+    trust: { s1:'de recettes en moyenne', s2:'de coûts d’énergie', s3:'de temps d’arrêt machine', s4:'gagnées / semaine' },
+    feat: {
+      kicker:'Une plateforme, tous les métiers',
+      title:'Tout ce qu’il faut pour exploiter un réseau de laveries.',
+      sub:'Des modules pensés pour les gérants indépendants comme pour les réseaux multi-sites.',
+      f1:{ t:'Supervision temps réel', d:'État de chaque machine, cycles en cours et alertes en direct, site par site. Fini les tournées à l’aveugle.' },
+      f2:{ t:'Recettes & monétique', d:'Réconciliation automatique des paiements CB, sans-contact, espèces et app. Écarts détectés en temps réel.' },
+      f3:{ t:'Énergie & conformité', d:'Suivi de la consommation eau, gaz, électricité par cycle. Rapports de conformité prêts à exporter.' },
+      f4:{ t:'Maintenance prédictive', d:'L’IA anticipe les pannes à partir des signaux machine et planifie les interventions avant l’arrêt.' },
+      f5:{ t:'Tarifs & yield', d:'Optimisation dynamique des prix selon l’affluence, la météo et la saison pour maximiser le remplissage.' },
+      f6:{ t:'Clients & fidélité', d:'Programme de fidélité, app mobile, cartes prépayées et campagnes ciblées intégrés nativement.' },
+      f7:{ t:'Finances consolidées', d:'Chiffre d’affaires, marges et trésorerie par site et consolidés, exportables vers votre comptabilité.' },
+      f8:{ t:'Réseau & benchmark', d:'Comparez la performance de vos sites entre eux et repérez instantanément les écarts à corriger.' },
+      f9:{ t:'Connecté à votre matériel', d:'Intégrations natives avec les principales centrales de paiement et fabricants de machines.' }
+    },
+    roi: {
+      kicker:'Estimez votre retour', title:'Combien LavoPilot peut vous rapporter ?',
+      sub:'Ajustez selon votre parc. Estimation basée sur les gains moyens constatés chez nos clients.',
+      machines:'Nombre de machines', revenue:'Recette moyenne / machine / mois',
+      resultLabel:'Gain annuel estimé', perYear:'par an, à parc constant',
+      b1:'Recettes supplémentaires (tarification + fidélité)', b2:'Économies d’énergie', b3:'Maintenance & temps d’arrêt évités',
+      cta:'Réserver une démo', disclaimer:'Estimation indicative, hors abonnement. Les résultats varient selon l’implantation et la fréquentation.'
+    },
+    ai: {
+      kicker:'Copilote IA', title:'Une IA qui travaille pour votre exploitation.',
+      sub:'LavoPilot ne se contente pas d’afficher des chiffres : il les interprète et vous dit quoi faire, en priorité.',
+      p1t:'Analyse continue', p1d:'chaque cycle, paiement et signal machine est analysé en temps réel.',
+      p2t:'Recommandations concrètes', p2d:'actions priorisées et chiffrées, pas des tableaux de plus.',
+      p3t:'Alertes intelligentes', p3d:'vous êtes prévenu avant que le problème ne coûte de l’argent.',
+      card1t:'Optimisation tarifaire', card1d:'« Vénissieux : +0,50 € sur les lave-linge 8 kg le week-end → +180 €/mois estimés. »',
+      card2t:'Anomalie énergie', card2d:'« Consommation eau +22 % sur SL-04 vs référence — fuite probable, intervention conseillée. »',
+      card3t:'Maintenance anticipée', card3d:'« Roulement LL-02 en fin de vie sous ~2 semaines — planifier avant panne. »'
+    },
+    price: {
+      kicker:'Tarifs simples', title:'Un prix par machine, sans surprise.',
+      sub:'Facturation mensuelle, sans engagement. Tous les modules inclus dès l’offre Standard.',
+      perMonth:'/ mois', perMachine:'par machine connectée', popular:'Le plus choisi',
+      p1n:'Essentiel', p1d:'Supervision et recettes pour un site unique.',
+      p2n:'Standard', p2d:'Tous les modules + IA pour multi-sites.',
+      p3n:'Réseau', p3d:'Grands parcs, API et accompagnement dédié.', custom:'Sur mesure', p3note:'tarif dégressif au volume',
+      cta:'Réserver une démo', contact:'Nous contacter'
+    },
+    finalCta: { title:'Prenez le contrôle de vos laveries.', sub:'Voyez LavoPilot sur vos propres chiffres. Démo personnalisée de 30 minutes, sans engagement.', cta1:'Réserver une démo', cta2:'Nous écrire' },
+    demo: {
+      kicker:'Démo personnalisée', title:'Réservez votre démo de 30 minutes.',
+      sub:'Un expert vous montre LavoPilot sur un cas proche du vôtre et répond à toutes vos questions.',
+      step1:'On analyse votre parc et vos enjeux actuels.', step2:'Démonstration en direct sur vos types de machines.', step3:'Estimation de ROI et plan de mise en service.',
+      fName:'Nom', phName:'Camille Durand', fCompany:'Société', phCompany:'Groupe Lavéo', fEmail:'E-mail professionnel', phEmail:'camille@laverie.fr',
+      fSites:'Nombre de sites / machines', phSites:'ex. 3 sites, 24 machines', fMsg:'Message (optionnel)', phMsg:'Parlez-nous de vos besoins…',
+      submit:'Envoyer ma demande', consent:'En envoyant ce formulaire, vous acceptez d’être recontacté par LavoPilot. Vos données ne sont jamais revendues.',
+      sentT:'Demande envoyée !', sentD:'Merci. Notre équipe vous recontacte sous un jour ouvré pour caler votre démo.'
+    },
+    legal: {
+      title:'Mentions légales', updated:'Dernière mise à jour : 1er juillet 2026',
+      h1:'Éditeur du site', b1:'Le site lavopilot.fr est édité par LavoPilot SAS, société par actions simplifiée au capital de 50 000 €, immatriculée au RCS de Paris sous le numéro 912 345 678, dont le siège social est situé 24 rue de la Laverie, 75011 Paris, France. TVA intracommunautaire : FR12912345678.',
+      h2:'Directeur de la publication', b2:'Le directeur de la publication est le représentant légal de LavoPilot SAS. Contact : contact@lavopilot.fr — +33 1 84 80 00 00.',
+      h3:'Hébergement', b3:'Le site et la plateforme sont hébergés au sein de l’Union européenne (France) par un prestataire certifié ISO 27001. Les données des clients sont stockées et traitées exclusivement sur des serveurs situés en France.',
+      h4:'Propriété intellectuelle', b4:'L’ensemble des contenus (marque LavoPilot, logo, textes, interfaces, code) est protégé par le droit de la propriété intellectuelle et demeure la propriété exclusive de LavoPilot SAS. Toute reproduction sans autorisation est interdite.',
+      h5:'Données personnelles (RGPD)', b5:'Conformément au Règlement (UE) 2016/679 et à la loi Informatique et Libertés, vous disposez d’un droit d’accès, de rectification, d’effacement et de portabilité de vos données. Pour l’exercer : rgpd@lavopilot.fr. Une réclamation peut être adressée à la CNIL.',
+      h6:'Cookies', b6:'Le site utilise des cookies strictement nécessaires à son fonctionnement ainsi que des cookies de mesure d’audience anonymisés. Vous pouvez gérer vos préférences à tout moment depuis votre navigateur.'
+    },
+    cgu: {
+      title:'Conditions d’utilisation', updated:'Dernière mise à jour : 1er juillet 2026',
+      h1:'1. Objet', b1:'Les présentes conditions générales d’utilisation (CGU) régissent l’accès et l’usage du site lavopilot.fr et de la plateforme LavoPilot. Toute utilisation implique l’acceptation pleine et entière des CGU.',
+      h2:'2. Accès au service', b2:'La plateforme est accessible 24h/24 sous réserve des opérations de maintenance. LavoPilot s’efforce d’assurer une disponibilité de 99,9 % mais ne peut être tenu responsable des interruptions indépendantes de sa volonté.',
+      h3:'3. Compte et sécurité', b3:'L’utilisateur est responsable de la confidentialité de ses identifiants et de toute activité réalisée depuis son compte. Tout usage frauduleux doit être signalé sans délai à support@lavopilot.fr.',
+      h4:'4. Abonnement et facturation', b4:'Le service est fourni sur abonnement mensuel, facturé par machine connectée, sans engagement de durée. La résiliation prend effet à la fin de la période de facturation en cours.',
+      h5:'5. Responsabilité', b5:'LavoPilot fournit des analyses et recommandations à titre d’aide à la décision. Les décisions d’exploitation, de tarification et de maintenance demeurent sous l’entière responsabilité du client.',
+      h6:'6. Données du client', b6:'Le client reste propriétaire de ses données. LavoPilot agit en qualité de sous-traitant au sens du RGPD et ne traite ces données que pour la fourniture du service, dans le cadre d’un contrat de traitement dédié.',
+      h7:'7. Droit applicable', b7:'Les présentes CGU sont soumises au droit français. Tout litige relève de la compétence exclusive des tribunaux de Paris, après tentative de résolution amiable.'
+    },
+    footer: { tagline:'L’ERP intelligent des laveries automatiques. Supervision, recettes, énergie et maintenance en un seul endroit.', madeIn:'Conçu et hébergé en France', product:'Produit', legal:'Légal', rights:'Tous droits réservés.' }
+  },
+  en: {
+    nav: { features:'Features', ai:'AI', login:'Log in', demo:'Book a demo' },
+    back: 'Back to home',
+    hero: {
+      badge:'New · Built-in AI copilot',
+      title:'The intelligent ERP that runs your laundromats.',
+      sub:'LavoPilot brings machine supervision, payments, energy and maintenance into one platform. AI reads your operation continuously and triggers the right actions.',
+      cta1:'Book a demo', cta2:'See the features',
+      point1:'No commitment', point2:'Live in 48 hours', point3:'Hosted in France',
+      mockRev:'Today’s revenue', mockUp:'Uptime', mockMachines:'machines', mockChart:'Revenue · 7 days', mockDays:'days',
+      mockAi:'Copilot — 3 dryers underused in Vénissieux: suggested −€0.50 price cut.'
+    },
+    trust: { s1:'average revenue', s2:'energy costs', s3:'machine downtime', s4:'saved / week' },
+    feat: {
+      kicker:'One platform, every job',
+      title:'Everything you need to run a laundromat network.',
+      sub:'Modules built for independent owners and multi-site networks alike.',
+      f1:{ t:'Real-time supervision', d:'Status of every machine, running cycles and live alerts, site by site. No more blind rounds.' },
+      f2:{ t:'Revenue & payments', d:'Automatic reconciliation of card, contactless, cash and app payments. Discrepancies flagged in real time.' },
+      f3:{ t:'Energy & compliance', d:'Track water, gas and electricity use per cycle. Compliance reports ready to export.' },
+      f4:{ t:'Predictive maintenance', d:'AI anticipates failures from machine signals and schedules service before the breakdown.' },
+      f5:{ t:'Pricing & yield', d:'Dynamic price optimization by footfall, weather and season to maximize utilization.' },
+      f6:{ t:'Customers & loyalty', d:'Loyalty program, mobile app, prepaid cards and targeted campaigns built in natively.' },
+      f7:{ t:'Consolidated finance', d:'Revenue, margins and cash per site and consolidated, exportable to your accounting.' },
+      f8:{ t:'Network & benchmark', d:'Compare site performance against each other and instantly spot the gaps to fix.' },
+      f9:{ t:'Connected to your hardware', d:'Native integrations with major payment terminals and machine manufacturers.' }
+    },
+    roi: {
+      kicker:'Estimate your return', title:'How much can LavoPilot earn you?',
+      sub:'Adjust for your fleet. Estimate based on average gains observed across our clients.',
+      machines:'Number of machines', revenue:'Avg revenue / machine / month',
+      resultLabel:'Estimated annual gain', perYear:'per year, at constant fleet',
+      b1:'Extra revenue (pricing + loyalty)', b2:'Energy savings', b3:'Maintenance & downtime avoided',
+      cta:'Book a demo', disclaimer:'Indicative estimate, excluding subscription. Results vary by location and footfall.'
+    },
+    ai: {
+      kicker:'AI Copilot', title:'AI that works for your operation.',
+      sub:'LavoPilot doesn’t just show numbers: it interprets them and tells you what to do, in priority order.',
+      p1t:'Continuous analysis', p1d:'every cycle, payment and machine signal is analyzed in real time.',
+      p2t:'Concrete recommendations', p2d:'prioritized, quantified actions — not more dashboards.',
+      p3t:'Smart alerts', p3d:'you’re warned before the problem costs you money.',
+      card1t:'Pricing optimization', card1d:'“Vénissieux: +€0.50 on 8 kg washers on weekends → est. +€180/month.”',
+      card2t:'Energy anomaly', card2d:'“Water use +22% on SL-04 vs baseline — likely leak, service advised.”',
+      card3t:'Anticipated maintenance', card3d:'“Bearing on LL-02 near end of life within ~2 weeks — schedule before failure.”'
+    },
+    price: {
+      kicker:'Simple pricing', title:'One price per machine, no surprises.',
+      sub:'Monthly billing, no commitment. All modules included from the Standard plan.',
+      perMonth:'/ mo', perMachine:'per connected machine', popular:'Most chosen',
+      p1n:'Essential', p1d:'Supervision and revenue for a single site.',
+      p2n:'Standard', p2d:'All modules + AI for multi-site.',
+      p3n:'Network', p3d:'Large fleets, API and dedicated support.', custom:'Custom', p3note:'volume-based discount',
+      cta:'Book a demo', contact:'Contact us'
+    },
+    finalCta: { title:'Take control of your laundromats.', sub:'See LavoPilot on your own numbers. A personalized 30-minute demo, no commitment.', cta1:'Book a demo', cta2:'Email us' },
+    demo: {
+      kicker:'Personalized demo', title:'Book your 30-minute demo.',
+      sub:'An expert shows you LavoPilot on a case close to yours and answers all your questions.',
+      step1:'We review your fleet and current challenges.', step2:'Live demo on your machine types.', step3:'ROI estimate and rollout plan.',
+      fName:'Name', phName:'Camille Durand', fCompany:'Company', phCompany:'Lavéo Group', fEmail:'Work email', phEmail:'camille@laundry.com',
+      fSites:'Number of sites / machines', phSites:'e.g. 3 sites, 24 machines', fMsg:'Message (optional)', phMsg:'Tell us about your needs…',
+      submit:'Send my request', consent:'By submitting this form you agree to be contacted by LavoPilot. Your data is never resold.',
+      sentT:'Request sent!', sentD:'Thank you. Our team will reach out within one business day to schedule your demo.'
+    },
+    legal: {
+      title:'Legal notice', updated:'Last updated: July 1, 2026',
+      h1:'Site publisher', b1:'The lavopilot.fr site is published by LavoPilot SAS, a simplified joint-stock company with capital of €50,000, registered with the Paris Trade Register under number 912 345 678, with registered office at 24 rue de la Laverie, 75011 Paris, France. Intra-EU VAT: FR12912345678.',
+      h2:'Publication director', b2:'The publication director is the legal representative of LavoPilot SAS. Contact: contact@lavopilot.fr — +33 1 84 80 00 00.',
+      h3:'Hosting', b3:'The site and platform are hosted within the European Union (France) by an ISO 27001-certified provider. Customer data is stored and processed exclusively on servers located in France.',
+      h4:'Intellectual property', b4:'All content (the LavoPilot brand, logo, text, interfaces, code) is protected by intellectual property law and remains the exclusive property of LavoPilot SAS. Any reproduction without authorization is prohibited.',
+      h5:'Personal data (GDPR)', b5:'In accordance with Regulation (EU) 2016/679 and French data protection law, you have the right to access, rectify, erase and port your data. To exercise it: rgpd@lavopilot.fr. A complaint may be filed with the CNIL.',
+      h6:'Cookies', b6:'The site uses cookies strictly necessary for its operation as well as anonymized analytics cookies. You can manage your preferences at any time from your browser.'
+    },
+    cgu: {
+      title:'Terms of use', updated:'Last updated: July 1, 2026',
+      h1:'1. Purpose', b1:'These terms of use govern access to and use of the lavopilot.fr site and the LavoPilot platform. Any use implies full acceptance of these terms.',
+      h2:'2. Service access', b2:'The platform is accessible 24/7 subject to maintenance operations. LavoPilot strives to ensure 99.9% availability but cannot be held liable for interruptions beyond its control.',
+      h3:'3. Account and security', b3:'The user is responsible for the confidentiality of their credentials and any activity carried out from their account. Any fraudulent use must be reported without delay to support@lavopilot.fr.',
+      h4:'4. Subscription and billing', b4:'The service is provided on a monthly subscription, billed per connected machine, with no minimum term. Cancellation takes effect at the end of the current billing period.',
+      h5:'5. Liability', b5:'LavoPilot provides analyses and recommendations as decision support. Operating, pricing and maintenance decisions remain the sole responsibility of the customer.',
+      h6:'6. Customer data', b6:'The customer retains ownership of their data. LavoPilot acts as a processor within the meaning of the GDPR and processes this data only to provide the service, under a dedicated processing agreement.',
+      h7:'7. Governing law', b7:'These terms are governed by French law. Any dispute falls under the exclusive jurisdiction of the Paris courts, after an attempt at amicable resolution.'
+    },
+    footer: { tagline:'The intelligent ERP for automatic laundromats. Supervision, revenue, energy and maintenance in one place.', madeIn:'Built and hosted in France', product:'Product', legal:'Legal', rights:'All rights reserved.' }
+  }
+};
+
+const MARK = '<svg width="{S}" height="{S}" viewBox="0 0 24 24" fill="none"><path d="M15 6.8A6 6 0 1 1 8.55 7.1" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M10.6 5.65L7.55 5.65L9.55 8.55z" fill="#fff"/><path d="M12 9l.8 2.2L15 12l-2.2 .8L12 15l-.8-2.2L9 12l2.2-.8z" fill="#BFD4F7"/></svg>';
+const check = (c,w) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c||'var(--ok)'}" stroke-width="${w||2.4}" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+
+const state = { lang:'fr', view:'home', machines:24, revPer:550, demoSent:false };
+const fmt = (n) => Math.round(n).toLocaleString(state.lang==='fr'?'fr-FR':'en-US');
+
+function featCard(t, key, iconSvg, tone){
+  const bg = tone==='energy' ? 'var(--energy-soft)' : 'var(--primary-soft)';
+  const fg = tone==='energy' ? 'var(--energy)' : 'var(--primary)';
+  return `<div class="card" style="border:1px solid var(--border);border-radius:16px;padding:24px;background:var(--surface);transition:box-shadow .2s,border-color .2s">
+    <div style="width:44px;height:44px;border-radius:12px;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;margin-bottom:18px">${iconSvg}</div>
+    <h3 style="margin:0 0 8px;font-size:17px;font-weight:700;letter-spacing:-.3px">${t.feat[key].t}</h3>
+    <p style="margin:0;font-size:14.5px;color:var(--fg-muted);line-height:1.55">${t.feat[key].d}</p>
+  </div>`;
+}
+const I = {
+  sup:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2.5" width="16" height="19" rx="2.2"/><circle cx="12" cy="13" r="5"/><circle cx="12" cy="13" r="1.6"/><path d="M7 6h.01M10 6h.01"/></svg>',
+  money:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 6.5a6 6 0 1 0 0 11"/><path d="M4 10.5h10M4 14h10"/></svg>',
+  energy:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20c8 1.5 15-4 15-13 0 0-11-1.5-13.5 6C5.3 16.5 5 18 5 20Z"/><path d="M5 20c1.5-5.5 5-8.5 9-9.5"/></svg>',
+  wrench:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5a4 4 0 0 1-5.2 5.2L4 16l4 4 5.3-5.3a4 4 0 0 1 5.2-5.2l-2.8 2.8-2.5-2.5 2.8-2.8Z"/></svg>',
+  tag:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 11 3.5l9 9-8 8z"/><circle cx="8" cy="8" r="1.4"/></svg>',
+  users:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 6.1"/><path d="M20.5 20a5.5 5.5 0 0 0-4-5.3"/></svg>',
+  bank:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 4l9 6"/><path d="M5 10v9M19 10v9M9.5 10v9M14.5 10v9M3 20h18"/></svg>',
+  net:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1.2"/><rect x="3" y="16" width="6" height="5" rx="1.2"/><rect x="15" y="16" width="6" height="5" rx="1.2"/><path d="M12 8v3M6 16v-2.5h12V16"/></svg>',
+  spark:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18"/><circle cx="12" cy="12" r="3.4"/></svg>',
+  arrow:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  arrowL:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>'
+};
+
+// Runtime config — read from <meta> so Terraform can inject the real URLs per env.
+const metaCfg = (n,d) => (document.querySelector(`meta[name="${n}"]`)||{}).content || d;
+const APP_LOGIN_URL = metaCfg('lavopilot:app-login', 'https://app.lavopilot.fr/login');
+const LEADS_ENDPOINT = metaCfg('lavopilot:leads-endpoint', 'https://api.lavopilot.fr/public/leads');
+
+function header(t){
+  const lang=state.lang;
+  const fr = lang==='fr';
+  return `<header style="position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)">
+    <div style="max-width:1200px;margin:0 auto;height:66px;display:flex;align-items:center;gap:22px;padding:0 28px">
+      <a data-act="home" style="display:flex;align-items:center;gap:11px;cursor:pointer;text-decoration:none;color:inherit">
+        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#5B8DEF,#1B4DB3);display:flex;align-items:center;justify-content:center;flex-shrink:0">${MARK.replaceAll('{S}','20')}</div>
+        <div style="font-weight:800;font-size:19px;letter-spacing:-.4px">Lavo<span style="color:var(--primary)">Pilot</span></div>
+      </a>
+      <nav class="mainnav" style="display:flex;align-items:center;gap:4px;margin-left:14px">
+        <a href="#features" class="navlnk" style="padding:8px 12px;border-radius:8px;font-size:14px;font-weight:500;color:var(--fg-muted);text-decoration:none">${t.nav.features}</a>
+        <a href="#ai" class="navlnk" style="padding:8px 12px;border-radius:8px;font-size:14px;font-weight:500;color:var(--fg-muted);text-decoration:none">${t.nav.ai}</a>
+      </nav>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;border:1px solid var(--border);border-radius:9px;overflow:hidden;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">
+        <button data-act="fr" style="border:0;padding:7px 11px;cursor:pointer;background:${fr?'var(--primary)':'transparent'};color:${fr?'#fff':'var(--fg-muted)'}">FR</button>
+        <button data-act="en" style="border:0;padding:7px 11px;cursor:pointer;background:${!fr?'var(--primary)':'transparent'};color:${!fr?'#fff':'var(--fg-muted)'}">EN</button>
+      </div>
+      <a href="${APP_LOGIN_URL}" class="btn-ghost" style="height:40px;padding:0 16px;display:inline-flex;align-items:center;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--fg);font-weight:600;font-size:14px;cursor:pointer;text-decoration:none">${t.nav.login}</a>
+      <button data-act="demo" class="btn-primary" style="height:40px;padding:0 18px;border:0;border-radius:10px;background:var(--primary);color:var(--on-primary);font-weight:600;font-size:14px;cursor:pointer;box-shadow:var(--shadow)">${t.nav.demo}</button>
+    </div>
+  </header>`;
+}
+
+function homeView(t){
+  return `<main>
+    <!-- HERO -->
+    <section class="grid-hero" style="max-width:1200px;margin:0 auto;padding:76px 28px 40px;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--border);border-radius:100px;background:var(--surface-2);font-size:12.5px;font-weight:600;color:var(--fg-muted);margin-bottom:24px">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--energy);animation:pl-pulse 2s infinite"></span>${t.hero.badge}
+        </div>
+        <h1 style="margin:0 0 20px;font-size:clamp(38px,4.6vw,58px);line-height:1.04;letter-spacing:-1.6px;font-weight:800">${t.hero.title}</h1>
+        <p style="margin:0 0 32px;font-size:18px;line-height:1.6;color:var(--fg-muted);max-width:520px">${t.hero.sub}</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button data-act="demo" class="btn-primary" style="height:50px;padding:0 24px;border:0;border-radius:12px;background:var(--primary);color:var(--on-primary);font-weight:600;font-size:15.5px;cursor:pointer;box-shadow:var(--shadow-lg)">${t.hero.cta1}</button>
+          <a href="#features" class="btn-ghost" style="height:50px;padding:0 22px;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface);color:var(--fg);font-weight:600;font-size:15.5px;cursor:pointer;text-decoration:none">${t.hero.cta2}${I.arrow}</a>
+        </div>
+        <div style="display:flex;align-items:center;gap:22px;margin-top:34px;font-size:13px;color:var(--fg-subtle);flex-wrap:wrap">
+          <span style="display:flex;align-items:center;gap:7px">${check()}${t.hero.point1}</span>
+          <span style="display:flex;align-items:center;gap:7px">${check()}${t.hero.point2}</span>
+          <span style="display:flex;align-items:center;gap:7px">${check()}${t.hero.point3}</span>
+        </div>
+      </div>
+      <div style="position:relative">
+        <div style="border-radius:18px;border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-lg);overflow:hidden;animation:pl-float 6s ease-in-out infinite">
+          <div style="height:40px;display:flex;align-items:center;gap:7px;padding:0 15px;border-bottom:1px solid var(--border);background:var(--surface-2)">
+            <span style="width:10px;height:10px;border-radius:50%;background:#E6E9EE"></span><span style="width:10px;height:10px;border-radius:50%;background:#E6E9EE"></span><span style="width:10px;height:10px;border-radius:50%;background:#E6E9EE"></span>
+            <span style="margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg-subtle)">app.lavopilot.fr</span>
+          </div>
+          <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;border:1px solid var(--border);border-radius:12px;padding:14px 15px">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg-subtle);text-transform:uppercase;letter-spacing:.4px">${t.hero.mockRev}</div>
+                <div style="font-size:26px;font-weight:800;letter-spacing:-.6px;margin-top:4px;font-variant-numeric:tabular-nums">4 218 €</div>
+                <div style="font-size:12px;color:var(--ok);font-weight:600;margin-top:2px">▲ +11,4%</div>
+              </div>
+              <div style="flex:1;border:1px solid var(--border);border-radius:12px;padding:14px 15px">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg-subtle);text-transform:uppercase;letter-spacing:.4px">${t.hero.mockUp}</div>
+                <div style="font-size:26px;font-weight:800;letter-spacing:-.6px;margin-top:4px;font-variant-numeric:tabular-nums">98,3%</div>
+                <div style="font-size:12px;color:var(--energy);font-weight:600;margin-top:2px">42 / 44 ${t.hero.mockMachines}</div>
+              </div>
+            </div>
+            <div style="border:1px solid var(--border);border-radius:12px;padding:15px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:13px;font-weight:600">${t.hero.mockChart}</div><div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg-subtle)">7 ${t.hero.mockDays}</div></div>
+              <div style="display:flex;align-items:flex-end;gap:8px;height:78px">
+                ${[44,61,52,74,66,88,100].map((h,i)=>`<div style="flex:1;height:${h}%;background:${i>=4?'var(--primary)':'var(--primary-soft)'};border-radius:5px 5px 0 0"></div>`).join('')}
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;border:1px solid var(--primary-soft);background:var(--primary-soft);border-radius:12px;padding:12px 14px">
+              <div style="width:28px;height:28px;border-radius:8px;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">${I.spark}</div>
+              <div style="font-size:12.5px;color:var(--primary-strong);font-weight:500;line-height:1.4">${t.hero.mockAi}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRUST -->
+    <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface-2)">
+      <div class="grid-4" style="max-width:1200px;margin:0 auto;padding:26px 28px;display:grid;grid-template-columns:repeat(4,1fr);gap:22px">
+        ${[['+11%',t.trust.s1],['−14%',t.trust.s2],['−32%',t.trust.s3],['6 h',t.trust.s4]].map(([n,l])=>`<div style="text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:600;letter-spacing:-1px">${n}</div><div style="font-size:13px;color:var(--fg-muted);margin-top:2px">${l}</div></div>`).join('')}
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" style="max-width:1200px;margin:0 auto;padding:88px 28px 20px;scroll-margin-top:80px">
+      <div style="max-width:640px;margin-bottom:48px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;color:var(--primary);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">${t.feat.kicker}</div>
+        <h2 style="margin:0 0 14px;font-size:clamp(30px,3.4vw,42px);letter-spacing:-1.1px;font-weight:800;line-height:1.08">${t.feat.title}</h2>
+        <p style="margin:0;font-size:17px;color:var(--fg-muted)">${t.feat.sub}</p>
+      </div>
+      <div class="grid-3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+        ${featCard(t,'f1',I.sup)}${featCard(t,'f2',I.money)}${featCard(t,'f3',I.energy,'energy')}
+        ${featCard(t,'f4',I.wrench)}${featCard(t,'f5',I.tag)}${featCard(t,'f6',I.users)}
+        ${featCard(t,'f7',I.bank)}${featCard(t,'f8',I.net)}
+        <div style="border:1px solid var(--primary);border-radius:16px;padding:24px;background:var(--ink-panel);color:#fff;display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div style="width:44px;height:44px;border-radius:12px;background:rgba(91,141,239,.22);color:#8FB4F5;display:flex;align-items:center;justify-content:center;margin-bottom:18px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></div>
+            <h3 style="margin:0 0 8px;font-size:17px;font-weight:700;letter-spacing:-.3px">${t.feat.f9.t}</h3>
+            <p style="margin:0;font-size:14.5px;color:#AEBBCD;line-height:1.55">${t.feat.f9.d}</p>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:18px">
+            ${['EAS','Nayax','Miele','Sepa','+20'].map(x=>`<span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 9px;border-radius:7px;background:rgba(255,255,255,.08);color:#C9D4E4">${x}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI -->
+    <section id="ai" style="background:var(--surface-2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);scroll-margin-top:66px">
+      <div class="grid-ai" style="max-width:1200px;margin:0 auto;padding:88px 28px;display:grid;grid-template-columns:.9fr 1.1fr;gap:56px;align-items:center">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;color:var(--primary);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">${t.ai.kicker}</div>
+          <h2 style="margin:0 0 14px;font-size:clamp(28px,3.2vw,40px);letter-spacing:-1px;font-weight:800;line-height:1.08">${t.ai.title}</h2>
+          <p style="margin:0 0 26px;font-size:16.5px;color:var(--fg-muted)">${t.ai.sub}</p>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            ${[[t.ai.p1t,t.ai.p1d],[t.ai.p2t,t.ai.p2d],[t.ai.p3t,t.ai.p3d]].map(([a,b])=>`<div style="display:flex;gap:12px;align-items:flex-start"><span style="width:24px;height:24px;border-radius:7px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${check('currentColor',2.4).replace('width="16" height="16"','width="14" height="14"')}</span><span style="font-size:15px"><strong>${a}</strong> — ${b}</span></div>`).join('')}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          ${[[t.ai.card1t,t.ai.card1d,'var(--primary)',I.spark],[t.ai.card2t,t.ai.card2d,'var(--energy)','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20c8 1.5 15-4 15-13 0 0-11-1.5-13.5 6C5.3 16.5 5 18 5 20Z"/></svg>'],[t.ai.card3t,t.ai.card3d,'var(--warn)','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5a4 4 0 0 1-5.2 5.2L4 16l4 4 5.3-5.3a4 4 0 0 1 5.2-5.2l-2.8 2.8-2.5-2.5 2.8-2.8Z"/></svg>']].map(([a,b,col,ic])=>`<div style="border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px 18px;display:flex;gap:13px;align-items:flex-start;box-shadow:var(--shadow)">
+            <div style="width:32px;height:32px;border-radius:9px;background:${col};display:flex;align-items:center;justify-content:center;flex-shrink:0">${ic}</div>
+            <div><div style="font-size:14.5px;font-weight:600;margin-bottom:2px">${a}</div><div style="font-size:13.5px;color:var(--fg-muted);line-height:1.5">${b}</div></div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section style="max-width:1200px;margin:0 auto 88px;padding:0 28px">
+      <div style="border-radius:24px;background:linear-gradient(135deg,#163F94,#0E1A2E);color:#fff;padding:60px 48px;text-align:center;position:relative;overflow:hidden">
+        <h2 style="margin:0 0 14px;font-size:clamp(28px,3.4vw,40px);letter-spacing:-1px;font-weight:800;line-height:1.1">${t.finalCta.title}</h2>
+        <p style="margin:0 auto 30px;font-size:17px;color:#C9D4E4;max-width:520px">${t.finalCta.sub}</p>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+          <button data-act="demo" class="btn-white" style="height:52px;padding:0 28px;border:0;border-radius:12px;background:#fff;color:var(--ink-panel);font-weight:700;font-size:15.5px;cursor:pointer">${t.finalCta.cta1}</button>
+          <a href="mailto:contact@lavopilot.fr" class="cta-ghost" style="height:52px;padding:0 26px;display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.25);border-radius:12px;color:#fff;font-weight:600;font-size:15.5px;cursor:pointer;text-decoration:none">${t.finalCta.cta2}</a>
+        </div>
+      </div>
+    </section>
+  </main>`;
+}
+
+function demoView(t){
+  const sent = state.demoSent;
+  return `<main style="max-width:960px;margin:0 auto;padding:60px 28px 88px">
+    <a data-act="home" class="footlnk" style="display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--fg-muted);cursor:pointer;margin-bottom:28px;text-decoration:none">${I.arrowL}${t.back}</a>
+    <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;color:var(--primary);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">${t.demo.kicker}</div>
+        <h1 style="margin:0 0 16px;font-size:clamp(28px,3.4vw,40px);letter-spacing:-1px;font-weight:800;line-height:1.08">${t.demo.title}</h1>
+        <p style="margin:0 0 28px;font-size:16.5px;color:var(--fg-muted)">${t.demo.sub}</p>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          ${[t.demo.step1,t.demo.step2,t.demo.step3].map((s,i)=>`<div style="display:flex;gap:12px;align-items:flex-start"><span style="width:26px;height:26px;border-radius:7px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">${i+1}</span><span style="font-size:14.5px;color:var(--fg-muted)">${s}</span></div>`).join('')}
+        </div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:18px;padding:30px;background:var(--surface);box-shadow:var(--shadow-lg)">
+        ${sent ? `<div style="text-align:center;padding:24px 8px">
+          <div style="width:54px;height:54px;border-radius:14px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+          <h3 style="margin:0 0 8px;font-size:20px;font-weight:700">${t.demo.sentT}</h3>
+          <p style="margin:0;font-size:14.5px;color:var(--fg-muted)">${t.demo.sentD}</p>
+        </div>` : `<form data-form="demo" style="display:flex;flex-direction:column;gap:15px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div><label style="font-size:12.5px;font-weight:600;color:var(--fg-muted);display:block;margin-bottom:6px">${t.demo.fName}</label><input required name="name" placeholder="${t.demo.phName}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:14px;background:var(--surface-2)"/></div>
+            <div><label style="font-size:12.5px;font-weight:600;color:var(--fg-muted);display:block;margin-bottom:6px">${t.demo.fCompany}</label><input name="company" placeholder="${t.demo.phCompany}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:14px;background:var(--surface-2)"/></div>
+          </div>
+          <div><label style="font-size:12.5px;font-weight:600;color:var(--fg-muted);display:block;margin-bottom:6px">${t.demo.fEmail}</label><input required name="email" type="email" placeholder="${t.demo.phEmail}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:14px;background:var(--surface-2)"/></div>
+          <div><label style="font-size:12.5px;font-weight:600;color:var(--fg-muted);display:block;margin-bottom:6px">${t.demo.fSites}</label><input name="sites" placeholder="${t.demo.phSites}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:14px;background:var(--surface-2)"/></div>
+          <div><label style="font-size:12.5px;font-weight:600;color:var(--fg-muted);display:block;margin-bottom:6px">${t.demo.fMsg}</label><textarea name="message" placeholder="${t.demo.phMsg}" style="width:100%;height:80px;padding:10px 12px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:14px;background:var(--surface-2);resize:vertical"></textarea></div>
+          <button type="submit" class="btn-primary" style="height:48px;border:0;border-radius:11px;background:var(--primary);color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-top:4px">${t.demo.submit}</button>
+          <div style="font-size:11.5px;color:var(--fg-subtle);line-height:1.45;text-align:center">${t.demo.consent}</div>
+        </form>`}
+      </div>
+    </div>
+  </main>`;
+}
+
+function legalView(t, sec){
+  const keys = sec==='legal' ? ['h1','h2','h3','h4','h5','h6'] : ['h1','h2','h3','h4','h5','h6','h7'];
+  return `<main style="max-width:820px;margin:0 auto;padding:60px 28px 88px">
+    <a data-act="home" class="footlnk" style="display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--fg-muted);cursor:pointer;margin-bottom:28px;text-decoration:none">${I.arrowL}${t.back}</a>
+    <h1 style="margin:0 0 8px;font-size:34px;letter-spacing:-1px;font-weight:800">${t[sec].title}</h1>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg-subtle);margin-bottom:36px">${t[sec].updated}</div>
+    <div style="display:flex;flex-direction:column;gap:28px;font-size:15px;color:var(--fg-muted);line-height:1.65">
+      ${keys.map(h=>`<div><h3 style="margin:0 0 8px;font-size:16px;font-weight:700;color:var(--fg)">${t[sec][h]}</h3><p style="margin:0">${t[sec]['b'+h.slice(1)]}</p></div>`).join('')}
+    </div>
+  </main>`;
+}
+
+function footer(t){
+  return `<footer style="border-top:1px solid var(--border);background:var(--surface-2)">
+    <div class="grid-foot" style="max-width:1200px;margin:0 auto;padding:48px 28px 34px;display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px">
+      <div>
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px">
+          <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#5B8DEF,#1B4DB3);display:flex;align-items:center;justify-content:center">${MARK.replaceAll('{S}','18')}</div>
+          <span style="font-weight:800;font-size:17px;letter-spacing:-.3px">Lavo<span style="color:var(--primary)">Pilot</span></span>
+        </div>
+        <p style="margin:0 0 12px;font-size:13.5px;color:var(--fg-muted);max-width:280px;line-height:1.55">${t.footer.tagline}</p>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg-subtle)">🇫🇷 ${t.footer.madeIn}</div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--fg-subtle);margin-bottom:14px">${t.footer.product}</div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <a href="#features" data-act="home" class="footlnk" style="font-size:14px;color:var(--fg-muted);text-decoration:none">${t.nav.features}</a>
+          <a href="#ai" data-act="home" class="footlnk" style="font-size:14px;color:var(--fg-muted);text-decoration:none">${t.nav.ai}</a>
+          <a href="${APP_LOGIN_URL}" class="footlnk" style="font-size:14px;color:var(--fg-muted);text-decoration:none">${t.nav.login}</a>
+          <a data-act="demo" class="footlnk" style="font-size:14px;color:var(--fg-muted);text-decoration:none;cursor:pointer">${t.nav.demo}</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--fg-subtle);margin-bottom:14px">${t.footer.legal}</div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <a data-act="legal" class="footlnk" style="font-size:14px;color:var(--fg-muted);text-decoration:none;cursor:pointer">${t.legal.title}</a>
+          <a data-act="cgu" class="footlnk" style="font-size:14px;color:var(--fg-muted);text-decoration:none;cursor:pointer">${t.cgu.title}</a>
+          <a href="mailto:contact@lavopilot.fr" class="footlnk" style="font-size:14px;color:var(--fg-muted);text-decoration:none">contact@lavopilot.fr</a>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding:18px 28px"><div style="max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--fg-subtle)"><span>© 2026 LavoPilot SAS. ${t.footer.rights}</span><span style="font-family:'JetBrains Mono',monospace">RCS Paris 912 345 678 · TVA FR12912345678</span></div></div>
+  </footer>`;
+}
+
+function render(){
+  const t = DICT[state.lang] || DICT.fr;
+  document.documentElement.lang = state.lang;
+  let body;
+  if(state.view==='demo') body = demoView(t);
+  else if(state.view==='legal') body = legalView(t,'legal');
+  else if(state.view==='cgu') body = legalView(t,'cgu');
+  else body = homeView(t);
+  document.getElementById('app').innerHTML = header(t) + body + footer(t);
+}
+
+function go(view){ state.view=view; render(); window.scrollTo(0,0); }
+
+document.addEventListener('click', (e)=>{
+  const el = e.target.closest('[data-act]');
+  if(!el) return;
+  const act = el.getAttribute('data-act');
+  if(act==='fr'){ state.lang='fr'; render(); return; }
+  if(act==='en'){ state.lang='en'; render(); return; }
+  if(act==='home'){ const hash=el.getAttribute('href'); if(state.view!=='home'){ e.preventDefault(); go('home'); if(hash) setTimeout(()=>{ location.hash=hash; },0); } return; }
+  if(['demo','legal','cgu'].includes(act)){ e.preventDefault(); go(act); }
+});
+async function submitDemo(form){
+  const data = Object.fromEntries(new FormData(form).entries());
+  const payload = {
+    name: data.name || '', company: data.company || '', email: data.email || '',
+    sites: data.sites || '', message: data.message || '',
+    locale: state.lang, source: 'marketing-site',
+  };
+  // Optimistically show confirmation; leads still deliver even if the tab closes.
+  state.demoSent = true; render();
+  try {
+    await fetch(LEADS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error('Lead submission failed', err);
+  }
+}
+document.addEventListener('submit', (e)=>{
+  if(e.target.getAttribute('data-form')==='demo'){ e.preventDefault(); submitDemo(e.target); }
+});
+
+render();
+</script>
+</body>
+</html>
