@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { ApiProvider } from '@/lib/api';
+import { ScopeProvider } from '@/lib/scope';
+import { ToastProvider } from '@/components/Toast';
 
 type Theme = 'light' | 'dark';
 
@@ -33,7 +35,11 @@ function ThemeProvider({ children }: { children: ReactNode }) {
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ApiProvider>
-      <ThemeProvider>{children}</ThemeProvider>
+      <ScopeProvider>
+        <ToastProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </ToastProvider>
+      </ScopeProvider>
     </ApiProvider>
   );
 }

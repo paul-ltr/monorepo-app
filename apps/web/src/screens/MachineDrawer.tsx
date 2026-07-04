@@ -4,6 +4,7 @@ import type { MachineState } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
 import { money2 } from '@/lib/format';
 import { Icon } from '@/components/Icon';
+import { useToast } from '@/components/Toast';
 import { LoadingBlock } from '@/components/state';
 import { cn } from '@/lib/cn';
 
@@ -17,6 +18,7 @@ const STATE_META: Record<MachineState, { label: string; bg: string; fg: string }
 
 export function MachineDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const api = useApi();
+  const { toast } = useToast();
   const query = useQuery({ queryKey: ['machine', id], queryFn: () => api.getMachineDetail(id) });
 
   // Close on Escape.
@@ -111,10 +113,22 @@ export function MachineDrawer({ id, onClose }: { id: string; onClose: () => void
         <div className="border-t border-border bg-surface-2 p-[14px_20px]">
           <div className="mb-2.5 text-[11px] font-semibold text-fg-subtle">Actions à distance · selon vos droits</div>
           <div className="flex gap-2.5">
-            <button className="h-10 flex-1 rounded-[9px] border border-border-strong bg-surface text-[13px] font-semibold text-fg hover:border-danger hover:text-danger">
+            <button
+              onClick={() => {
+                toast(`${m?.name ?? 'Machine'} — commande « mise hors service » envoyée.`, 'warn');
+                onClose();
+              }}
+              className="h-10 flex-1 rounded-[9px] border border-border-strong bg-surface text-[13px] font-semibold text-fg hover:border-danger hover:text-danger"
+            >
               Mettre hors service
             </button>
-            <button className="h-10 flex-1 rounded-[9px] bg-primary text-[13px] font-semibold text-primary-fg hover:bg-primary-strong">
+            <button
+              onClick={() => {
+                toast(`${m?.name ?? 'Machine'} — cycle lancé à distance.`);
+                onClose();
+              }}
+              className="h-10 flex-1 rounded-[9px] bg-primary text-[13px] font-semibold text-primary-fg hover:bg-primary-strong"
+            >
               Lancer un cycle
             </button>
           </div>

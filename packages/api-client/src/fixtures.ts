@@ -69,27 +69,27 @@ export const session: SessionInfo = {
 
 export const sites: Site[] = (
   [
-    ['Lyon-3 Guillotière', 'Lyon', '69003', 220],
-    ['Paris-11 Voltaire', 'Paris', '75011', 180],
-    ['Villeurbanne Gratte-Ciel', 'Villeurbanne', '69100', 160],
-    ['Lyon-7 Jean Macé', 'Lyon', '69007', 140],
-    ['Vénissieux Centre', 'Vénissieux', '69200', 200],
-    ['Bron Terraillon', 'Bron', '69500', 120],
+    ['Lyon-3 Guillotière', '14 cours Gambetta', 'Lyon', '69003', 220, 45.7538, 4.8494, '2021-03-15', 'active'],
+    ['Paris-11 Voltaire', '92 boulevard Voltaire', 'Paris', '75011', 180, 48.8583, 2.3796, '2022-06-01', 'active'],
+    ['Villeurbanne Gratte-Ciel', '8 avenue Henri Barbusse', 'Villeurbanne', '69100', 160, 45.7719, 4.8795, '2022-09-12', 'active'],
+    ['Lyon-7 Jean Macé', '31 rue de Marseille', 'Lyon', '69007', 140, 45.7448, 4.8422, '2023-01-20', 'active'],
+    ['Vénissieux Centre', '5 place Léon Sublet', 'Vénissieux', '69200', 200, 45.6975, 4.8869, '2020-11-05', 'active'],
+    ['Bron Terraillon', '20 rue Guynemer', 'Bron', '69500', 120, 45.7333, 4.9106, '2024-02-28', 'paused'],
   ] as const
-).map(([name, city, postalCode, surfaceM2], i) => ({
+).map(([name, address, city, postalCode, surfaceM2, lat, lng, openedAt, status], i) => ({
   id: u(`2${i}`),
   tenantId: u('1'),
   networkId: u('3'),
   name,
-  address: null,
+  address,
   city,
   postalCode,
-  lat: null,
-  lng: null,
+  lat,
+  lng,
   surfaceM2,
   timezone: 'Europe/Paris',
-  status: 'active' as const,
-  openedAt: null,
+  status: status as 'active' | 'paused' | 'closed',
+  openedAt: `${openedAt}T09:00:00.000Z`,
 }));
 
 export const dashboard: DashboardSummary = {
@@ -417,9 +417,10 @@ export const network: NetworkSummary = {
       [5, 'Bron Terraillon', 200000, 44, -1],
       [6, 'Vénissieux Centre', 295000, 22, -31],
     ] as const
-  ).map(([rank, name, ca, index, delta], i) => ({
+  ).map(([rank, name, ca, index, delta]) => ({
     rank,
-    siteId: u(`2${i}`),
+    // Resolve to the canonical site id so scope selection / drill-in line up.
+    siteId: sites.find((s) => s.name === name)?.id ?? u('20'),
     name,
     revenue: e(ca),
     index,

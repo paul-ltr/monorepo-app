@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { PriceSlot } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
+import { useScope } from '@/lib/scope';
 import { money2 } from '@/lib/format';
 import { Button, Card, ScreenHeader, SectionCard } from '@/components/ui';
+import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
 
@@ -14,15 +16,21 @@ const SLOT_COL: Partial<Record<PriceSlot, string>> = { offpeak: 'text-energy', p
 export function Pricing() {
   const { t } = useTranslation();
   const api = useApi();
+  const { label } = useScope();
+  const { toast } = useToast();
   const query = useQuery({ queryKey: ['pricing'], queryFn: () => api.getPricing() });
 
   return (
     <>
       <ScreenHeader
-        crumbs={[t('topbar.allSites'), 'Grille standard']}
+        crumbs={[label, 'Grille standard']}
         title={t('titles.pricing')}
         actions={
-          <Button variant="primary" icon="arrowRight">
+          <Button
+            variant="primary"
+            icon="arrowRight"
+            onClick={() => toast(`Grille tarifaire poussée aux automates · ${label}. Application sous 5 min.`)}
+          >
             Pousser les prix
           </Button>
         }

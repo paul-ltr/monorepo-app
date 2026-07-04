@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TicketPriority, TicketStatus, TechnicianTask } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
+import { useScope } from '@/lib/scope';
 import { num } from '@/lib/format';
 import { Button, Card, ScreenHeader, SectionCard } from '@/components/ui';
+import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
 
@@ -38,15 +40,17 @@ const PLAN_URGENCY: Record<string, string> = { ok: 'text-ok', soon: 'text-warn',
 export function Maintenance() {
   const { t } = useTranslation();
   const api = useApi();
+  const { label } = useScope();
+  const { toast } = useToast();
   const query = useQuery({ queryKey: ['maintenance'], queryFn: () => api.getMaintenance() });
 
   return (
     <>
       <ScreenHeader
-        crumbs={[t('topbar.allSites'), 'GMAO']}
+        crumbs={[label, 'GMAO']}
         title={t('titles.maintenance')}
         actions={
-          <Button variant="primary" icon="plus">
+          <Button variant="primary" icon="plus" onClick={() => toast('Nouveau ticket créé et ajouté à la file priorisée.')}>
             Nouveau ticket
           </Button>
         }
@@ -68,7 +72,11 @@ export function Maintenance() {
                   const prio = PRIO[tk.priority];
                   const st = STATUS[tk.status];
                   return (
-                    <div key={tk.id} className="flex cursor-pointer items-center gap-[13px] border-b border-border px-[18px] py-[13px] last:border-b-0 hover:bg-surface-2">
+                    <div
+                      key={tk.id}
+                      onClick={() => toast(`${tk.code} · ${tk.title} — ${tk.siteName}. Ouverture du ticket.`, 'info')}
+                      className="flex cursor-pointer items-center gap-[13px] border-b border-border px-[18px] py-[13px] last:border-b-0 hover:bg-surface-2"
+                    >
                       <span className={cn('h-[34px] w-1 flex-shrink-0 rounded-[3px]', PRIO_BAR[tk.priority])} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[13px] font-semibold">{tk.title}</div>
