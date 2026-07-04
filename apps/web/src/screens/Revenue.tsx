@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import type { PaymentMethod, ReconciliationStatus } from '@pilotage/shared';
+import type { PaymentMethod, ReconciliationStatus, RevenueSummary } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
+import { useScope } from '@/lib/scope';
 import { money0, money2, num, relativeTime } from '@/lib/format';
+import { downloadCsv } from '@/lib/download';
 import { Button, Card, ScreenHeader, SectionCard } from '@/components/ui';
 import { Icon } from '@/components/Icon';
+import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
 
@@ -25,15 +28,32 @@ const METHOD_LABEL: Record<PaymentMethod, { label: string; color: string }> = {
 export function Revenue() {
   const { t } = useTranslation();
   const api = useApi();
+  const { label } = useScope();
+  const { toast } = useToast();
   const query = useQuery({ queryKey: ['revenue', '7d'], queryFn: () => api.getRevenue('7d') });
+
+  const exportRecon = (d: RevenueSummary) => {
+    downloadCsv(
+      'reconciliation-7j.csv',
+      ['Site', 'Théorique (€)', 'Encaissé (€)', 'Écart (€)', 'Statut'],
+      d.reconciliation.map((r) => [
+        r.siteName,
+        (r.theoretical.amountCents / 100).toFixed(2),
+        (r.collected.amountCents / 100).toFixed(2),
+        (r.variance.amountCents / 100).toFixed(2),
+        RECON_META[r.status].label,
+      ]),
+    );
+    toast('Réconciliation exportée (CSV).');
+  };
 
   return (
     <>
       <ScreenHeader
-        crumbs={[t('topbar.allSites'), '7 derniers jours']}
+        crumbs={[label, '7 derniers jours']}
         title={t('titles.revenue')}
         actions={
-          <Button variant="secondary" icon="download">
+          <Button variant="secondary" icon="download" onClick={() => query.data && exportRecon(query.data)}>
             {t('common.export')}
           </Button>
         }
@@ -87,6 +107,7 @@ export function Revenue() {
                   return (
                     <div
                       key={r.siteId}
+                      onClick={() => toast(`${r.siteName} · écart ${money0(r.variance)} — ouverture du détail des événements.`, 'info')}
                       className={cn(
                         'grid cursor-pointer grid-cols-[1.7fr_1fr_1fr_1fr_.9fr] items-center gap-2 border-b border-border px-[18px] py-[13px] hover:bg-surface-2',
                         meta.row,

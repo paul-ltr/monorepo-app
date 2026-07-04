@@ -16,8 +16,14 @@ export const fr = {
   topbar: {
     allSites: 'Tous les sites',
     search: 'Rechercher un site, une machine, un ticket…',
-    updated: 'Mis à jour il y a {{time}}',
+    updated: 'Mis à jour {{time}}',
     notifications: 'Notifications',
+    switchOrg: 'Changer d’organisation',
+    manageSites: 'Gérer les sites',
+    noResults: 'Aucun résultat',
+    scopeAll: 'Périmètre : tout le réseau · 6 sites',
+    scopeSite: 'Périmètre : {{name}}',
+    scopeReset: 'Voir tout le réseau',
   },
   common: {
     today: "Aujourd'hui",

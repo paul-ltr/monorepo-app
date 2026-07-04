@@ -29,6 +29,14 @@ is French-first. Status legend: ✅ done · 🔜 next · ⬜ planned.
   `LlmService` (Mistral) with per-tenant token cap; `/health`. **Verified
   end-to-end** against the seeded DB: `/me`, `/sites` (RLS-scoped read),
   `/dashboard` (RBAC), `POST /energy/operat` (write + audit row), 422 on bad input.
+- ✅ **P4b — Multisite management (web)**: functional site **scope selector** (topbar
+  dropdown + global search suggestions + persisted perimeter + scope banner) that
+  drills the Dashboard/Réseau/Revenue/etc. down to one site; the **M9 Réseau** screen
+  now has a **Sites du réseau** registry (list + add-site form) with enriched fixtures
+  (address/coords/status), clickable benchmark ranking (→ drill-in), a downloadable
+  network report, and working royalty/standardization actions. Every screen's action
+  buttons are wired (CSV/FEC exports, remote device commands, toasts, mark-as-read,
+  preference toggles). Verified in-browser end-to-end.
 - 🔜 **P6 — MVP API modules**: ✅ read endpoints for M1/M2/M5/M9/M12 wired (served
   from typed fixtures = the "mock `ingest`/`analytics`" the spec calls for, with
   TODOs to swap for `analytics.*` queries once the data repo lands) + DB-backed

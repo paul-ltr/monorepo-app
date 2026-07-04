@@ -19,8 +19,14 @@ export const en: Translations = {
   topbar: {
     allSites: 'All sites',
     search: 'Search a site, machine or ticket…',
-    updated: 'Updated {{time}} ago',
+    updated: 'Updated {{time}}',
     notifications: 'Notifications',
+    switchOrg: 'Switch organisation',
+    manageSites: 'Manage sites',
+    noResults: 'No results',
+    scopeAll: 'Scope: whole network · 6 sites',
+    scopeSite: 'Scope: {{name}}',
+    scopeReset: 'View whole network',
   },
   common: {
     today: 'Today',
