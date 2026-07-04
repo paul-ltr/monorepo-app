@@ -9,6 +9,7 @@ import { FreshnessBadge } from '@/components/state';
 import { useToast } from '@/components/Toast';
 import { useApi } from '@/lib/api';
 import { useSession, useBranding } from '@/lib/hooks';
+import { SupportWidget } from '@/components/SupportWidget';
 import { useScope } from '@/lib/scope';
 import { cn } from '@/lib/cn';
 
@@ -67,7 +68,7 @@ function NavLink({ item }: { item: NavItem }) {
   );
 }
 
-function Sidebar({ orgName }: { orgName: string }) {
+function Sidebar({ orgName, superuser }: { orgName: string; superuser: boolean }) {
   const nav = useNav();
   return (
     <aside className="flex w-[248px] flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg">
@@ -101,6 +102,9 @@ function Sidebar({ orgName }: { orgName: string }) {
         ))}
       </nav>
       <div className="border-t border-sidebar-border p-2.5">
+        {superuser && (
+          <NavLink item={{ to: '/console', icon: 'shield', label: 'Back-office' }} />
+        )}
         <NavLink item={nav.settings} />
       </div>
     </aside>
@@ -341,7 +345,7 @@ export function Shell() {
 
   return (
     <div className={cn('flex h-screen overflow-hidden bg-bg text-fg')}>
-      <Sidebar orgName={orgName} />
+      <Sidebar orgName={orgName} superuser={session.data?.superuser ?? false} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar orgName={orgName} orgInitials={orgInitials} />
         <ScopeBanner />
@@ -351,6 +355,7 @@ export function Shell() {
           </div>
         </main>
       </div>
+      <SupportWidget />
     </div>
   );
 }

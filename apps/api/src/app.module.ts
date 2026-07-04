@@ -13,6 +13,8 @@ import { CoreController } from './modules/core.controller';
 import { ReadController } from './modules/read.controller';
 import { ActionsController } from './modules/actions.controller';
 import { StubsController } from './modules/stubs.controller';
+import { SupportController, ConsoleController } from './modules/console.controller';
+import { ConsoleStore } from './modules/console.store.service';
 
 /**
  * Root module. One module would normally exist per domain (M1–M12); for the MVP
@@ -22,11 +24,20 @@ import { StubsController } from './modules/stubs.controller';
  */
 @Module({
   imports: [DbModule],
-  controllers: [HealthController, CoreController, ReadController, ActionsController, StubsController],
+  controllers: [
+    HealthController,
+    CoreController,
+    ReadController,
+    ActionsController,
+    StubsController,
+    SupportController,
+    ConsoleController,
+  ],
   providers: [
     LlmService,
     ReadService,
     AuditService,
+    ConsoleStore,
     { provide: APP_FILTER, useClass: ProblemFilter },
     { provide: APP_GUARD, useClass: FeatureModuleGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },

@@ -14,6 +14,7 @@ function ctxWith(perms: PermissionKey[]): RequestContext {
     permissions: perms,
     scope: { type: 'tenant' },
     locale: 'fr-FR',
+    superuser: false,
   };
 }
 
