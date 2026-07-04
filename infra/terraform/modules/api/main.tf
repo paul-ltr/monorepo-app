@@ -82,14 +82,14 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      PILOTAGE_ENV          = var.env
-      AUTH_DEV_BYPASS       = "false"
-      CORS_ORIGINS          = var.cors_origins
-      DB_PROXY_ENDPOINT     = var.db_proxy_endpoint
-      DB_SECRET_ARN         = var.db_secret_arn
-      COGNITO_USER_POOL_ID  = var.cognito_user_pool_id
-      COGNITO_CLIENT_ID     = var.cognito_client_id
-      COGNITO_REGION        = var.region
+      PILOTAGE_ENV         = var.env
+      AUTH_DEV_BYPASS      = "false"
+      CORS_ORIGINS         = var.cors_origins
+      DB_PROXY_ENDPOINT    = var.db_proxy_endpoint
+      DB_SECRET_ARN        = var.db_secret_arn
+      COGNITO_USER_POOL_ID = var.cognito_user_pool_id
+      COGNITO_CLIENT_ID    = var.cognito_client_id
+      COGNITO_REGION       = var.region
     }
   }
 
