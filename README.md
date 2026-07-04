@@ -8,7 +8,8 @@ Serverless-first so idle cost stays near zero while the platform scales.
 > The product UI is **French-first** (i18n FR default, EN stubbed). This repo
 > owns the shared foundation infra (network, database, auth) that the companion
 > **data/Python repo** consumes. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for
-> the cross-repo contract.
+> the cross-repo contract and [`docs/COMMERCIAL.md`](./docs/COMMERCIAL.md) for the
+> commercial documentation (product pros + market gap analysis).
 
 ## Stack
 
