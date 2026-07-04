@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { Notification } from '@pilotage/shared';
@@ -27,7 +28,7 @@ const FILTER_LABEL: Record<string, string> = {
 export function Notifications() {
   const { t } = useTranslation();
   const api = useApi();
-  const { label } = useScope();
+  const { label, scope } = useScope();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('all');
   const [readAll, setReadAll] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
@@ -39,7 +40,10 @@ export function Notifications() {
     <>
       <QueryBoundary query={query}>
         {(d) => {
-          const items = d.items.map((n) => ({ ...n, read: readAll || readIds.has(n.id) ? true : n.read }));
+          const all = d.items.map((n) => ({ ...n, read: readAll || readIds.has(n.id) ? true : n.read }));
+          // Scope to the selected shop when a single site is active (match by name,
+          // as notifications carry siteName — same convention as the dashboard).
+          const items = scope.type === 'site' ? all.filter((n) => n.siteName === scope.name) : all;
           const unread = items.filter((n) => !n.read).length;
           let shown = items;
           if (filter === 'unread') shown = items.filter((n) => !n.read);
@@ -88,6 +92,15 @@ export function Notifications() {
                   <Pref title="Attention" sub="Push + e-mail" defaultOn />
                   <Pref title="Info" sub="Dans l'app uniquement" />
                   <Pref title="Résumé quotidien" sub="E-mail · 08:00" defaultOn last />
+                  <div className="mt-3 flex items-start gap-2 rounded-[9px] bg-surface-2 p-2.5">
+                    <Icon name="info" size={14} className="mt-px flex-shrink-0 text-fg-subtle" strokeWidth={1.9} />
+                    <div className="text-[11px] leading-[1.5] text-fg-subtle">
+                      Les SMS sont envoyés au numéro défini pour chaque site.{' '}
+                      <Link to="/settings" className="font-semibold text-primary hover:underline">
+                        Configurer les numéros
+                      </Link>
+                    </div>
+                  </div>
                 </Card>
               </div>
             </>

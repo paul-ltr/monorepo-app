@@ -40,6 +40,7 @@ export type IconName =
   | 'logo'
   | 'info'
   | 'chat'
+  | 'menu'
   | 'shield';
 
 const PATHS: Record<IconName, ReactNode> = {
@@ -224,6 +225,13 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
       <path d="M9 12l2 2 4-4" />
+    </>
+  ),
+  menu: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M3 12h18" />
+      <path d="M3 18h18" />
     </>
   ),
 };

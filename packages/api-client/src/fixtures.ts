@@ -8,6 +8,7 @@ import type {
   Money,
   TenantBranding,
   DashboardSummary,
+  SiteKpi,
   MachineStatus,
   MachineStateCounts,
   MachineDetail,
@@ -60,6 +61,7 @@ export const session: SessionInfo = {
     'M7:pricing:write',
     'M3:customers:view',
     'M9:network:view',
+    'M12:sites:manage',
     'M12:users:manage',
     'M12:connectors:manage',
     'M12:audit:view',
@@ -69,14 +71,14 @@ export const session: SessionInfo = {
 
 export const sites: Site[] = (
   [
-    ['Lyon-3 Guillotière', '14 cours Gambetta', 'Lyon', '69003', 220, 45.7538, 4.8494, '2021-03-15', 'active'],
-    ['Paris-11 Voltaire', '92 boulevard Voltaire', 'Paris', '75011', 180, 48.8583, 2.3796, '2022-06-01', 'active'],
-    ['Villeurbanne Gratte-Ciel', '8 avenue Henri Barbusse', 'Villeurbanne', '69100', 160, 45.7719, 4.8795, '2022-09-12', 'active'],
-    ['Lyon-7 Jean Macé', '31 rue de Marseille', 'Lyon', '69007', 140, 45.7448, 4.8422, '2023-01-20', 'active'],
-    ['Vénissieux Centre', '5 place Léon Sublet', 'Vénissieux', '69200', 200, 45.6975, 4.8869, '2020-11-05', 'active'],
-    ['Bron Terraillon', '20 rue Guynemer', 'Bron', '69500', 120, 45.7333, 4.9106, '2024-02-28', 'paused'],
+    ['Lyon-3 Guillotière', '14 cours Gambetta', 'Lyon', '69003', 220, 45.7538, 4.8494, '2021-03-15', 'active', '+33 6 12 34 56 78'],
+    ['Paris-11 Voltaire', '92 boulevard Voltaire', 'Paris', '75011', 180, 48.8583, 2.3796, '2022-06-01', 'active', '+33 6 23 45 67 89'],
+    ['Villeurbanne Gratte-Ciel', '8 avenue Henri Barbusse', 'Villeurbanne', '69100', 160, 45.7719, 4.8795, '2022-09-12', 'active', null],
+    ['Lyon-7 Jean Macé', '31 rue de Marseille', 'Lyon', '69007', 140, 45.7448, 4.8422, '2023-01-20', 'active', null],
+    ['Vénissieux Centre', '5 place Léon Sublet', 'Vénissieux', '69200', 200, 45.6975, 4.8869, '2020-11-05', 'active', '+33 6 34 56 78 90'],
+    ['Bron Terraillon', '20 rue Guynemer', 'Bron', '69500', 120, 45.7333, 4.9106, '2024-02-28', 'paused', null],
   ] as const
-).map(([name, address, city, postalCode, surfaceM2, lat, lng, openedAt, status], i) => ({
+).map(([name, address, city, postalCode, surfaceM2, lat, lng, openedAt, status, smsNumber], i) => ({
   id: u(`2${i}`),
   tenantId: u('1'),
   networkId: u('3'),
@@ -87,15 +89,57 @@ export const sites: Site[] = (
   lat,
   lng,
   surfaceM2,
+  smsNumber,
   timezone: 'Europe/Paris',
   status: status as 'active' | 'paused' | 'closed',
   openedAt: `${openedAt}T09:00:00.000Z`,
 }));
 
+// Recent-daily revenue shape (9 points, oldest→newest), scaled per site to its
+// current CA with a small deterministic jitter so each sparkline reads distinctly.
+const TREND_SHAPE = [0.82, 0.9, 0.85, 0.97, 0.88, 1.04, 0.92, 0.99, 1] as const;
+const trendFor = (ca: number, seed: number): number[] =>
+  TREND_SHAPE.map((f, i) => Math.round(ca * (f + ((((seed * 7 + i * 3) % 5) - 2) / 100))));
+
+const dashboardSites: SiteKpi[] = (
+  // [name, CA, occ%, uptime%, benchPct, alerts, CA-hier, deltaPct, mActive, mTotal, mOOS, energyPct, tickets, critical]
+  [
+    ['Lyon-3 Guillotière', 124800, 74, 99, 92, 0, 116300, 7.3, 11, 11, 0, -9.1, 1, 0],
+    ['Paris-11 Voltaire', 98600, 61, 97, 78, 1, 92400, 6.7, 9, 10, 1, -4.2, 2, 0],
+    ['Villeurbanne Gratte-Ciel', 73400, 58, 88, 54, 2, 71900, 2.1, 7, 9, 1, 3.4, 1, 0],
+    ['Lyon-7 Jean Macé', 61200, 49, 92, 61, 0, 60100, 1.8, 6, 7, 0, -6.0, 1, 0],
+    ['Vénissieux Centre', 42100, 38, 71, 22, 3, 46800, -10.0, 5, 8, 2, 12.4, 2, 2],
+    ['Bron Terraillon', 28600, 31, 96, 44, 0, 27700, 3.2, 6, 7, 0, -5.5, 0, 0],
+  ] as const
+).map(([name, ca, occ, up, pct, alerts, caY, delta, mAct, mTot, mOos, ePct, tk, crit], i) => ({
+  siteId: u(`2${i}`),
+  name,
+  revenue: e(ca),
+  occupancyPct: occ,
+  uptimePct: up,
+  benchmarkPercentile: pct,
+  openAlerts: alerts,
+  revenueTrend: trendFor(ca, i),
+  revenueYesterday: e(caY),
+  revenueDeltaPct: delta,
+  machinesActive: mAct,
+  machinesTotal: mTot,
+  machinesOutOfService: mOos,
+  energyVsRefPct: ePct,
+  openTickets: tk,
+  criticalTickets: crit,
+}));
+
+// Network sparkline = sum of every site's daily revenue, point by point.
+const networkTrend: number[] = TREND_SHAPE.map((_, i) =>
+  dashboardSites.reduce((sum, s) => sum + s.revenueTrend[i]!, 0),
+);
+
 export const dashboard: DashboardSummary = {
   scopeLabel: 'Tous les sites',
   revenueToday: e(428700),
   revenueDelta: { pct: 8.2, direction: 'up' },
+  revenueTrend: networkTrend,
   revenueYesterday: e(396200),
   machinesActive: 38,
   machinesTotal: 52,
@@ -104,33 +148,7 @@ export const dashboard: DashboardSummary = {
   energyVsRefPct: -6.2,
   openTickets: 7,
   criticalTickets: 2,
-  sites: (
-    // [name, CA, occ%, uptime%, benchPct, alerts, CA-hier, deltaPct, mActive, mTotal, mOOS, energyPct, tickets, critical]
-    [
-      ['Lyon-3 Guillotière', 124800, 74, 99, 92, 0, 116300, 7.3, 11, 11, 0, -9.1, 1, 0],
-      ['Paris-11 Voltaire', 98600, 61, 97, 78, 1, 92400, 6.7, 9, 10, 1, -4.2, 2, 0],
-      ['Villeurbanne Gratte-Ciel', 73400, 58, 88, 54, 2, 71900, 2.1, 7, 9, 1, 3.4, 1, 0],
-      ['Lyon-7 Jean Macé', 61200, 49, 92, 61, 0, 60100, 1.8, 6, 7, 0, -6.0, 1, 0],
-      ['Vénissieux Centre', 42100, 38, 71, 22, 3, 46800, -10.0, 5, 8, 2, 12.4, 2, 2],
-      ['Bron Terraillon', 28600, 31, 96, 44, 0, 27700, 3.2, 6, 7, 0, -5.5, 0, 0],
-    ] as const
-  ).map(([name, ca, occ, up, pct, alerts, caY, delta, mAct, mTot, mOos, ePct, tk, crit], i) => ({
-    siteId: u(`2${i}`),
-    name,
-    revenue: e(ca),
-    occupancyPct: occ,
-    uptimePct: up,
-    benchmarkPercentile: pct,
-    openAlerts: alerts,
-    revenueYesterday: e(caY),
-    revenueDeltaPct: delta,
-    machinesActive: mAct,
-    machinesTotal: mTot,
-    machinesOutOfService: mOos,
-    energyVsRefPct: ePct,
-    openTickets: tk,
-    criticalTickets: crit,
-  })),
+  sites: dashboardSites,
   alerts: (
     [
       ['critical', 'power', '2 sèche-linge hors service', 'Vénissieux Centre', '2026-06-29T07:48:00.000Z'],

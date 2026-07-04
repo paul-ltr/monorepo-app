@@ -7,6 +7,7 @@ import {
   type ReplyTicketInput,
   type CreateAccountInput,
   type UpdateAccountInput,
+  type Site,
   type ConnectedMeter,
   type ConnectorHistory,
   type EnergyProvider,
@@ -32,6 +33,8 @@ export function createMockClient(): PilotageApi {
   const tickets: SupportTicket[] = f.supportTickets.map((t) => ({ ...t, messages: [...t.messages] }));
   const groups: TenantGroup[] = f.tenantGroups.map((g) => ({ ...g }));
   const accounts: AccountUser[] = f.accounts.map((a) => ({ ...a }));
+  // Mutable copy so per-site SMS edits persist within a session.
+  const sites: Site[] = f.sites.map((s) => ({ ...s }));
   let seq = 1043;
 
   // Transient consent state for the simulated Enedis flow (state → prm + site).
@@ -74,7 +77,13 @@ export function createMockClient(): PilotageApi {
     getNetwork: () => delay(f.network),
     getAdmin: () => delay(f.admin),
     getNotifications: () => delay(f.notifications),
-    getSites: () => delay(f.sites),
+    getSites: () => delay(sites.map((s) => ({ ...s }))),
+    updateSiteSms: (input) => {
+      const site = sites.find((s) => s.id === input.siteId);
+      if (!site) return Promise.reject(new Error('site not found'));
+      site.smsNumber = input.smsNumber;
+      return delay({ ...site });
+    },
 
     createSupportTicket: (input: CreateSupportTicketInput) => {
       const now = new Date().toISOString();

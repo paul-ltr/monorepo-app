@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   { key: 'M7:pricing:write', module: 'M7', label: 'Modifier les tarifs et promotions' },
   { key: 'M3:customers:view', module: 'M3', label: 'Voir les clients' },
   { key: 'M9:network:view', module: 'M9', label: 'Voir le réseau et le benchmark' },
+  { key: 'M12:sites:manage', module: 'M12', label: 'Gérer les sites et leurs alertes' },
   { key: 'M12:users:manage', module: 'M12', label: 'Gérer les utilisateurs et rôles' },
   { key: 'M12:connectors:manage', module: 'M12', label: 'Gérer les connecteurs' },
   { key: 'M12:audit:view', module: 'M12', label: "Voir le journal d'audit" },
@@ -69,6 +70,7 @@ export const ROLE_PERMISSIONS: Record<SystemRoleKey, PermissionKey[]> = {
     'M7:pricing:write',
     'M3:customers:view',
     'M9:network:view',
+    'M12:sites:manage',
     'M12:audit:view',
   ],
   accountant: [

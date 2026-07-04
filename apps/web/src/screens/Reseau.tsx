@@ -214,6 +214,7 @@ function SitesManager({ sites, onOpen }: { sites: Site[]; onOpen: (siteId: strin
       lat: null,
       lng: null,
       surfaceM2: surface ? Number(surface) : null,
+      smsNumber: null,
       timezone: 'Europe/Paris',
       status: 'paused',
       openedAt: null,

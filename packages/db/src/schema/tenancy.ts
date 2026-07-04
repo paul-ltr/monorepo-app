@@ -56,6 +56,8 @@ export const site = core.table(
     lng: doublePrecision('lng'),
     /** Surface in m² — required for OPERAT (décret tertiaire). */
     surfaceM2: doublePrecision('surface_m2'),
+    /** E.164 phone number that receives SMS alerts for this site. */
+    smsNumber: text('sms_number'),
     timezone: text('timezone').notNull().default('Europe/Paris'),
     openingHours: jsonb('opening_hours'),
     status: siteStatusEnum('status').notNull().default('active'),
