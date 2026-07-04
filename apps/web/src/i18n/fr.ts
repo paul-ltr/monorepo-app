@@ -24,6 +24,7 @@ export const fr = {
     scopeAll: 'Périmètre : tout le réseau · 6 sites',
     scopeSite: 'Périmètre : {{name}}',
     scopeReset: 'Voir tout le réseau',
+    toggleSidebar: 'Réduire / déployer le menu',
   },
   common: {
     today: "Aujourd'hui",

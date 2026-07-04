@@ -1,6 +1,6 @@
 env                      = "prod"
 region                   = "eu-west-3"
-use_managed_nat          = true          # managed NAT Gateway (HA/reliable)
+use_managed_nat          = true # managed NAT Gateway (HA/reliable)
 db_instance_class        = "db.t4g.medium"
 db_multi_az              = true
 db_deletion_protection   = true

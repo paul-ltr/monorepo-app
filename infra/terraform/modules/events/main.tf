@@ -39,8 +39,8 @@ resource "aws_cloudwatch_event_rule" "refresh" {
 }
 
 resource "aws_cloudwatch_event_target" "refresh" {
-  rule     = aws_cloudwatch_event_rule.refresh.name
-  arn      = aws_sqs_queue.main["refresh"].arn
+  rule      = aws_cloudwatch_event_rule.refresh.name
+  arn       = aws_sqs_queue.main["refresh"].arn
   target_id = "refresh-queue"
 }
 

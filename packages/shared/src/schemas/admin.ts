@@ -39,6 +39,8 @@ export const site = z.object({
   lat: z.number().nullable(),
   lng: z.number().nullable(),
   surfaceM2: z.number().nullable(), // for OPERAT
+  /** E.164 phone number that receives SMS alerts for this site (null = none). */
+  smsNumber: z.string().nullable(),
   timezone: ianaTimezone.default('Europe/Paris'),
   status: siteStatus,
   openedAt: isoTimestamp.nullable(),
@@ -47,6 +49,13 @@ export type Site = z.infer<typeof site>;
 
 export const createSiteInput = site.omit({ id: true, tenantId: true });
 export type CreateSiteInput = z.infer<typeof createSiteInput>;
+
+/** Update the SMS alert recipient for one site. */
+export const updateSiteSmsInput = z.object({
+  siteId: uuid,
+  smsNumber: z.string().nullable(),
+});
+export type UpdateSiteSmsInput = z.infer<typeof updateSiteSmsInput>;
 
 export const appUser = z.object({
   id: uuid,

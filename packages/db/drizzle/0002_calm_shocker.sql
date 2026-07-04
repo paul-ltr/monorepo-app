@@ -1,0 +1,1 @@
+ALTER TABLE "core"."site" ADD COLUMN "sms_number" text;
