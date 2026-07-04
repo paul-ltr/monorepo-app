@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -19,6 +19,19 @@ interface NavItem {
   icon: IconName;
   label: string;
   dot?: boolean;
+}
+
+/** Reactive media-query hook (SSR-safe-ish; window is always present here). */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
 }
 
 function useNav(): { main: NavItem[]; groups: { head: string; items: NavItem[] }[]; settings: NavItem } {
@@ -50,19 +63,23 @@ function useNav(): { main: NavItem[]; groups: { head: string; items: NavItem[] }
   };
 }
 
-function NavLink({ item }: { item: NavItem }) {
+function NavLink({ item, collapsed }: { item: NavItem; collapsed?: boolean }) {
   return (
     <Link
       to={item.to}
       activeOptions={{ exact: item.to === '/' }}
-      className="mb-0.5 flex items-center gap-[11px] rounded-[9px] px-[11px] py-[9px] font-medium text-sidebar-fg transition-colors hover:bg-sidebar-active-bg"
+      title={collapsed ? item.label : undefined}
+      className={cn(
+        'relative mb-0.5 flex items-center gap-[11px] rounded-[9px] py-[9px] font-medium text-sidebar-fg transition-colors hover:bg-sidebar-active-bg',
+        collapsed ? 'justify-center px-0' : 'px-[11px]',
+      )}
       activeProps={{ className: 'bg-sidebar-active-bg font-semibold text-white' }}
     >
       <Icon name={item.icon} size={18} />
-      <span className="flex-1">{item.label}</span>
+      {!collapsed && <span className="flex-1">{item.label}</span>}
       {item.dot && (
         <span
-          className="h-1.5 w-1.5 rounded-full bg-energy"
+          className={cn('h-1.5 w-1.5 rounded-full bg-energy', collapsed && 'absolute right-2 top-2')}
           style={{ boxShadow: '0 0 0 3px rgba(47,184,168,.18)' }}
         />
       )}
@@ -70,43 +87,59 @@ function NavLink({ item }: { item: NavItem }) {
   );
 }
 
-function Sidebar({ orgName, superuser }: { orgName: string; superuser: boolean }) {
+function Sidebar({ collapsed, superuser }: { collapsed: boolean; superuser: boolean }) {
   const nav = useNav();
   return (
-    <aside className="flex w-[248px] flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg">
-      <div className="flex h-16 flex-shrink-0 items-center gap-[11px] border-b border-sidebar-border px-[18px]">
+    <aside
+      className={cn(
+        'flex flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg transition-[width] duration-200',
+        collapsed ? 'w-[64px]' : 'w-[248px]',
+      )}
+    >
+      <div
+        className={cn(
+          'flex h-16 flex-shrink-0 items-center gap-[11px] border-b border-sidebar-border',
+          collapsed ? 'justify-center px-0' : 'px-[18px]',
+        )}
+      >
         <div
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[9px]"
           style={{ background: 'linear-gradient(135deg,#5B8DEF,#1B4DB3)' }}
         >
           <img src="/brand/mark-white.svg" alt="LavoPilot" width={20} height={20} />
         </div>
-        <div className="min-w-0">
-          <div className="text-[16px] font-bold leading-[1.1] tracking-[-0.2px] text-white">
-            Lavo<span className="text-[#8FB4F5]">Pilot</span>
+        {!collapsed && (
+          <div className="min-w-0">
+            <div className="text-[16px] font-bold leading-[1.1] tracking-[-0.2px] text-white">
+              Lavo<span className="text-[#8FB4F5]">Pilot</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
-      <nav className="flex-1 overflow-y-auto px-2.5 pb-4 pt-3">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 pb-4 pt-3">
         {nav.main.map((item) => (
-          <NavLink key={item.to} item={item} />
+          <NavLink key={item.to} item={item} collapsed={collapsed} />
         ))}
         {nav.groups.map((g) => (
           <div key={g.head}>
-            <div className="px-[11px] pb-1.5 pt-3.5 text-[10px] font-bold uppercase tracking-[0.7px] text-sidebar-head">
-              {g.head}
-            </div>
+            {collapsed ? (
+              <div className="mx-2 my-2 border-t border-sidebar-border" />
+            ) : (
+              <div className="px-[11px] pb-1.5 pt-3.5 text-[10px] font-bold uppercase tracking-[0.7px] text-sidebar-head">
+                {g.head}
+              </div>
+            )}
             {g.items.map((item) => (
-              <NavLink key={item.to} item={item} />
+              <NavLink key={item.to} item={item} collapsed={collapsed} />
             ))}
           </div>
         ))}
       </nav>
       <div className="border-t border-sidebar-border p-2.5">
         {superuser && (
-          <NavLink item={{ to: '/console', icon: 'shield', label: 'Back-office' }} />
+          <NavLink item={{ to: '/console', icon: 'shield', label: 'Back-office' }} collapsed={collapsed} />
         )}
-        <NavLink item={nav.settings} />
+        <NavLink item={nav.settings} collapsed={collapsed} />
       </div>
     </aside>
   );
@@ -280,7 +313,15 @@ function GlobalSearch() {
   );
 }
 
-function Topbar({ orgName, orgInitials }: { orgName: string; orgInitials: string }) {
+function Topbar({
+  orgName,
+  orgInitials,
+  onToggleSidebar,
+}: {
+  orgName: string;
+  orgInitials: string;
+  onToggleSidebar: () => void;
+}) {
   const { t } = useTranslation();
   const api = useApi();
   const navigate = useNavigate();
@@ -290,13 +331,29 @@ function Topbar({ orgName, orgInitials }: { orgName: string; orgInitials: string
   const dash = useQuery({ queryKey: ['dashboard', 'today'], queryFn: () => api.getDashboard('today') });
 
   return (
-    <header className="z-[5] flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-border bg-surface px-[22px]">
-      <OrgSwitcher orgName={orgName} orgInitials={orgInitials} />
-      <div className="h-6 w-px bg-border" />
+    <header className="z-[5] flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-border bg-surface px-[14px] sm:px-[22px]">
+      <button
+        onClick={onToggleSidebar}
+        aria-label={t('topbar.toggleSidebar')}
+        title={t('topbar.toggleSidebar')}
+        className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-[9px] border border-border bg-surface text-fg-muted hover:border-border-strong"
+      >
+        <Icon name="menu" size={18} />
+      </button>
+      <div className="hidden lg:block">
+        <OrgSwitcher orgName={orgName} orgInitials={orgInitials} />
+      </div>
+      <div className="hidden h-6 w-px bg-border lg:block" />
       <ScopeSelector />
-      <GlobalSearch />
-      <div className="flex-1" />
-      {dash.data && <FreshnessBadge freshness={dash.data.freshness} />}
+      <div className="hidden min-w-0 flex-1 md:block">
+        <GlobalSearch />
+      </div>
+      <div className="flex-1 md:hidden" />
+      {dash.data && (
+        <div className="hidden sm:block">
+          <FreshnessBadge freshness={dash.data.freshness} />
+        </div>
+      )}
       <button
         onClick={() => navigate({ to: '/notifications' })}
         title={t('topbar.notifications')}
@@ -378,11 +435,21 @@ export function Shell() {
     .slice(0, 2)
     .toUpperCase();
 
+  // Below 1024px the sidebar collapses to an icon rail automatically; above it,
+  // the topbar toggle lets the user reclaim the space manually.
+  const narrow = useMediaQuery('(max-width: 1023px)');
+  const [userCollapsed, setUserCollapsed] = useState(false);
+  const collapsed = narrow || userCollapsed;
+
   return (
     <div className={cn('flex h-screen overflow-hidden bg-bg text-fg')}>
-      <Sidebar orgName={orgName} superuser={session.data?.superuser ?? false} />
+      <Sidebar collapsed={collapsed} superuser={session.data?.superuser ?? false} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar orgName={orgName} orgInitials={orgInitials} />
+        <Topbar
+          orgName={orgName}
+          orgInitials={orgInitials}
+          onToggleSidebar={() => setUserCollapsed((v) => !v)}
+        />
         <ScopeBanner />
         <main className="relative flex-1 overflow-y-auto">
           <div className="max-w-content px-7 pb-10 pt-6">

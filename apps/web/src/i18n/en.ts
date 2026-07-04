@@ -27,6 +27,7 @@ export const en: Translations = {
     scopeAll: 'Scope: whole network · 6 sites',
     scopeSite: 'Scope: {{name}}',
     scopeReset: 'View whole network',
+    toggleSidebar: 'Collapse / expand menu',
   },
   common: {
     today: 'Today',

@@ -34,12 +34,12 @@ const ROLE_LABELS: Record<SystemRoleKey, string> = {
 };
 
 const SITES = [
-  { name: 'Lyon-3 Guillotière', city: 'Lyon', postalCode: '69003', surfaceM2: 220 },
-  { name: 'Paris-11 Voltaire', city: 'Paris', postalCode: '75011', surfaceM2: 180 },
-  { name: 'Villeurbanne Gratte-Ciel', city: 'Villeurbanne', postalCode: '69100', surfaceM2: 160 },
-  { name: 'Lyon-7 Jean Macé', city: 'Lyon', postalCode: '69007', surfaceM2: 140 },
-  { name: 'Vénissieux Centre', city: 'Vénissieux', postalCode: '69200', surfaceM2: 200 },
-  { name: 'Bron Terraillon', city: 'Bron', postalCode: '69500', surfaceM2: 120 },
+  { name: 'Lyon-3 Guillotière', city: 'Lyon', postalCode: '69003', surfaceM2: 220, smsNumber: '+33 6 12 34 56 78' },
+  { name: 'Paris-11 Voltaire', city: 'Paris', postalCode: '75011', surfaceM2: 180, smsNumber: '+33 6 23 45 67 89' },
+  { name: 'Villeurbanne Gratte-Ciel', city: 'Villeurbanne', postalCode: '69100', surfaceM2: 160, smsNumber: null },
+  { name: 'Lyon-7 Jean Macé', city: 'Lyon', postalCode: '69007', surfaceM2: 140, smsNumber: null },
+  { name: 'Vénissieux Centre', city: 'Vénissieux', postalCode: '69200', surfaceM2: 200, smsNumber: '+33 6 34 56 78 90' },
+  { name: 'Bron Terraillon', city: 'Bron', postalCode: '69500', surfaceM2: 120, smsNumber: null },
 ] as const;
 
 type MachineState = 'free' | 'running' | 'finished' | 'out_of_service' | 'offline';
@@ -167,6 +167,7 @@ async function seedDemoTenant() {
         city: site.city,
         postalCode: site.postalCode,
         surfaceM2: site.surfaceM2,
+        smsNumber: site.smsNumber,
         status: 'active' as const,
       })),
     )

@@ -15,6 +15,7 @@ import {
   type Campaign,
   type CreateCampaignInput,
   type CampaignStatus,
+  type Site,
   type ConnectedMeter,
   type ConnectorHistory,
   type EnergyProvider,
@@ -44,6 +45,8 @@ export function createMockClient(): PilotageApi {
   const maintTickets: Ticket[] = f.maintenance.tickets.map((t) => ({ ...t }));
   const promotions: Promotion[] = f.pricing.promotions.map((p) => ({ ...p }));
   const campaigns: Campaign[] = f.customers.campaigns.map((c) => ({ ...c }));
+  // Mutable copy so per-site SMS edits persist within a session.
+  const sites: Site[] = f.sites.map((s) => ({ ...s }));
   let seq = 1043;
   let maintSeq = 2242;
 
@@ -167,7 +170,13 @@ export function createMockClient(): PilotageApi {
     getNetwork: () => delay(f.network),
     getAdmin: () => delay(f.admin),
     getNotifications: () => delay(f.notifications),
-    getSites: () => delay(f.sites),
+    getSites: () => delay(sites.map((s) => ({ ...s }))),
+    updateSiteSms: (input) => {
+      const site = sites.find((s) => s.id === input.siteId);
+      if (!site) return Promise.reject(new Error('site not found'));
+      site.smsNumber = input.smsNumber;
+      return delay({ ...site });
+    },
 
     createSupportTicket: (input: CreateSupportTicketInput) => {
       const now = new Date().toISOString();

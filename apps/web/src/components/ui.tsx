@@ -24,6 +24,64 @@ export function Card({ className, children }: { className?: string; children: Re
   );
 }
 
+/**
+ * Small "ⓘ" affordance that reveals a short explanation on click. Used on KPI
+ * cards to explain what a figure means and how it's computed. Stops click
+ * propagation so it works inside clickable cards/rows.
+ */
+export function InfoDot({
+  title,
+  align = 'right',
+  className,
+  children,
+}: {
+  title: string;
+  align?: 'left' | 'right';
+  className?: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className={cn('relative inline-flex', className)}>
+      <button
+        type="button"
+        aria-label={`À propos : ${title}`}
+        aria-expanded={open}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface-3 hover:text-fg-muted"
+      >
+        <Icon name="info" size={14} strokeWidth={1.9} />
+      </button>
+      {open && (
+        <>
+          {/* click-away backdrop */}
+          <span
+            className="fixed inset-0 z-40"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+            }}
+          />
+          <span
+            role="tooltip"
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              'absolute top-[24px] z-50 block w-[248px] cursor-default rounded-[10px] border border-border bg-surface p-3 text-left shadow-lg',
+              align === 'right' ? 'right-0' : 'left-0',
+            )}
+          >
+            <span className="mb-1 block text-[12.5px] font-bold text-fg">{title}</span>
+            <span className="block text-[11.5px] font-normal leading-[1.5] text-fg-muted">{children}</span>
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
 /** Card with a header row (title + optional subtitle + right-side action). */
 export function SectionCard({
   title,

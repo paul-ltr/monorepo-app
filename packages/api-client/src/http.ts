@@ -79,6 +79,7 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     getAdmin: () => get('/admin'),
     getNotifications: () => get('/notifications'),
     getSites: () => get('/sites'),
+    updateSiteSms: (input) => post(`/sites/${input.siteId}/sms`, { smsNumber: input.smsNumber }),
     createSupportTicket: (input) => post('/support/tickets', input),
     getSupportTickets: () => get('/console/tickets'),
     replySupportTicket: (input) => post(`/console/tickets/${input.ticketId}/reply`, input),

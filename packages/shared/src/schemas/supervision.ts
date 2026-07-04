@@ -74,6 +74,8 @@ export const siteKpi = z.object({
   /** Benchmark percentile vs peers (0–100). */
   benchmarkPercentile: z.number(),
   openAlerts: z.number().int(),
+  /** Recent daily revenue (cents), oldest→newest, for the site sparkline. */
+  revenueTrend: z.array(z.number()),
   /** Per-site rollups so the dashboard KPIs can be scoped to one site. */
   revenueYesterday: money,
   revenueDeltaPct: z.number(),
@@ -102,6 +104,8 @@ export const dashboardSummary = z.object({
   scopeLabel: z.string(),
   revenueToday: money,
   revenueDelta: kpiDelta,
+  /** Recent daily revenue (cents) for the whole network, oldest→newest. */
+  revenueTrend: z.array(z.number()),
   revenueYesterday: money,
   machinesActive: z.number().int(),
   machinesTotal: z.number().int(),

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import type { ConnectorHistory, ConnectorStatus, EnedisMeterKind } from '@pilotage/shared';
+import type { ConnectorHistory, ConnectorStatus, EnedisMeterKind, Site } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
 import { useScope } from '@/lib/scope';
 import { useAppParams, emptySiteParams, type SiteParams } from '@/lib/params';
@@ -108,6 +108,7 @@ export function Settings() {
             <BrevoConfig />
             <EnedisConfig />
             <GrdfConfig />
+            <SitesSmsConfig />
 
             <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[1.5fr_1fr]">
               <SectionCard
@@ -158,6 +159,87 @@ export function Settings() {
         )}
       </QueryBoundary>
     </>
+  );
+}
+
+/**
+ * Per-site SMS alert recipient. The phone number set here receives the critical
+ * SMS alerts toggled on the Notifications → Préférences panel.
+ */
+function SitesSmsConfig() {
+  const api = useApi();
+  const query = useQuery({ queryKey: ['sites'], queryFn: () => api.getSites() });
+  return (
+    <SectionCard
+      className="mb-[18px]"
+      title="Sites & alertes SMS"
+      subtitle="Numéro qui reçoit les SMS d'alerte critique, par site"
+    >
+      <QueryBoundary query={query}>
+        {(sites) =>
+          sites.length === 0 ? (
+            <div className="px-[18px] py-8 text-center text-[12.5px] text-fg-subtle">Aucun site.</div>
+          ) : (
+            sites.map((s) => <SiteSmsRow key={s.id} site={s} />)
+          )
+        }
+      </QueryBoundary>
+    </SectionCard>
+  );
+}
+
+function SiteSmsRow({ site }: { site: Site }) {
+  const api = useApi();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [value, setValue] = useState(site.smsNumber ?? '');
+
+  // Keep the field in sync if the underlying site refetches.
+  useEffect(() => {
+    setValue(site.smsNumber ?? '');
+  }, [site.smsNumber]);
+
+  const save = useMutation({
+    mutationFn: () => api.updateSiteSms({ siteId: site.id, smsNumber: value.trim() === '' ? null : value.trim() }),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: ['sites'] });
+      toast(
+        updated.smsNumber ? `Numéro SMS enregistré pour « ${site.name} ».` : `Numéro SMS retiré pour « ${site.name} ».`,
+      );
+    },
+    onError: () => toast('Échec de l’enregistrement du numéro SMS.', 'danger'),
+  });
+
+  const current = site.smsNumber ?? '';
+  const dirty = value.trim() !== current;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-b border-border px-[18px] py-3 last:border-b-0">
+      <div className="min-w-[180px] flex-1">
+        <div className="text-[13px] font-semibold">{site.name}</div>
+        <div className="text-[11px] text-fg-subtle">
+          {site.city ?? '—'}
+          {site.smsNumber ? '' : ' · aucun numéro'}
+        </div>
+      </div>
+      <input
+        type="tel"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="+33 6 12 34 56 78"
+        aria-label={`Numéro SMS pour ${site.name}`}
+        className={fieldCls('flex-1')}
+      />
+      <Button
+        variant="secondary"
+        size="sm"
+        icon="check"
+        disabled={!dirty || save.isPending}
+        onClick={() => save.mutate()}
+      >
+        {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
+      </Button>
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 env                      = "dev"
 region                   = "eu-west-3"
-use_managed_nat          = false        # fck-nat instance (cheap)
+use_managed_nat          = false # fck-nat instance (cheap)
 db_instance_class        = "db.t4g.small"
 db_multi_az              = false
 db_deletion_protection   = false

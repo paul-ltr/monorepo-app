@@ -47,13 +47,13 @@ resource "aws_cognito_user_pool_client" "web" {
   name         = "pilotage-${var.env}-web"
   user_pool_id = aws_cognito_user_pool.this.id
 
-  generate_secret               = false # public SPA client → PKCE
-  explicit_auth_flows           = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
-  supported_identity_providers  = ["COGNITO"]
-  callback_urls                 = var.callback_urls
-  logout_urls                   = var.callback_urls
-  allowed_oauth_flows           = ["code"]
-  allowed_oauth_scopes          = ["openid", "email", "profile"]
+  generate_secret                      = false # public SPA client → PKCE
+  explicit_auth_flows                  = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  supported_identity_providers         = ["COGNITO"]
+  callback_urls                        = var.callback_urls
+  logout_urls                          = var.callback_urls
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
   allowed_oauth_flows_user_pool_client = true
 
   access_token_validity  = 60

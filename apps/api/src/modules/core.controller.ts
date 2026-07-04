@@ -1,10 +1,10 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { schema } from '@pilotage/db';
-import type { Site, TenantBranding } from '@pilotage/shared';
+import { updateSiteSmsInput, type Site, type TenantBranding } from '@pilotage/shared';
 import { ScopedDb } from '@/db/db.module';
-import { Ctx } from '@/auth/rbac';
+import { Ctx, RequirePermission } from '@/auth/rbac';
 import type { RequestContext } from '@pilotage/shared';
 import type { SessionInfo } from '@pilotage/api-client';
 
@@ -42,20 +42,42 @@ export class CoreController {
   @Get('sites')
   async sites(): Promise<Site[]> {
     const rows = await this.db.run((tx) => tx.select().from(schema.site));
-    return rows.map((s) => ({
-      id: s.id,
-      tenantId: s.tenantId,
-      networkId: s.networkId,
-      name: s.name,
-      address: s.address,
-      city: s.city,
-      postalCode: s.postalCode,
-      lat: s.lat,
-      lng: s.lng,
-      surfaceM2: s.surfaceM2,
-      timezone: s.timezone,
-      status: s.status,
-      openedAt: s.openedAt ? s.openedAt.toISOString() : null,
-    }));
+    return rows.map(toSite);
   }
+
+  /** Set (or clear) the SMS alert recipient for one site. RLS scopes to tenant. */
+  @Post('sites/:id/sms')
+  @RequirePermission('M12:sites:manage')
+  async setSiteSms(@Ctx() ctx: RequestContext, @Param('id') id: string, @Body() body: unknown): Promise<Site> {
+    const input = updateSiteSmsInput.parse({ ...(body as object), siteId: id });
+    const rows = await this.db.run((tx) =>
+      tx
+        .update(schema.site)
+        .set({ smsNumber: input.smsNumber })
+        .where(and(eq(schema.site.id, input.siteId), eq(schema.site.tenantId, ctx.tenantId)))
+        .returning(),
+    );
+    const row = rows[0];
+    if (!row) throw new Error('site not found');
+    return toSite(row);
+  }
+}
+
+function toSite(s: typeof schema.site.$inferSelect): Site {
+  return {
+    id: s.id,
+    tenantId: s.tenantId,
+    networkId: s.networkId,
+    name: s.name,
+    address: s.address,
+    city: s.city,
+    postalCode: s.postalCode,
+    lat: s.lat,
+    lng: s.lng,
+    surfaceM2: s.surfaceM2,
+    smsNumber: s.smsNumber,
+    timezone: s.timezone,
+    status: s.status,
+    openedAt: s.openedAt ? s.openedAt.toISOString() : null,
+  };
 }

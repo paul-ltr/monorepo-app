@@ -25,6 +25,7 @@ import type {
   AdminSummary,
   NotificationList,
   Site,
+  UpdateSiteSmsInput,
   PermissionKey,
   SupportTicket,
   CreateSupportTicketInput,
@@ -97,6 +98,8 @@ export interface PilotageApi {
   getAdmin(): Promise<AdminSummary>;
   getNotifications(): Promise<NotificationList>;
   getSites(): Promise<Site[]>;
+  /** Set/clear a site's SMS alert recipient (M12:sites:manage). */
+  updateSiteSms(input: UpdateSiteSmsInput): Promise<Site>;
 
   // Support widget — open to any authenticated user.
   createSupportTicket(input: CreateSupportTicketInput): Promise<SupportTicket>;
