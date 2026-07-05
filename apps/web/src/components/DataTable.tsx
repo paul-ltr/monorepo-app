@@ -29,7 +29,6 @@ export function useTableControls<T>(
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q ? rows.filter((r) => opts.search(r).toLowerCase().includes(q)) : rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, query]);
 
   const sorted = useMemo(() => {
@@ -42,7 +41,6 @@ export function useTableControls<T>(
       const c = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv));
       return c * dir;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, sort]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
