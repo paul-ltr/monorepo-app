@@ -110,7 +110,12 @@ export interface RequestContext {
   superuser: boolean;
 }
 
-/** LavoPilot team membership is decided by email domain. */
+/**
+ * Dev-only heuristic for LavoPilot staff membership by email domain. NOT a
+ * security boundary: in production, back-office (superuser) access is granted
+ * from the IdP-verified `lavopilot-staff` Cognito group, never this. Reachable
+ * only under AUTH_DEV_BYPASS (forbidden in prod). See api auth.middleware.ts.
+ */
 export function isLavoPilotStaff(email: string): boolean {
   return /@lavopilot\.com$/i.test(email.trim());
 }

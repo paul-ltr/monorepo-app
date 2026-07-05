@@ -25,6 +25,8 @@ export class CoreController {
     };
   }
 
+  // Ungated like /me: non-sensitive self-tenant theming (name/logo/colour) the
+  // shell needs to render for any authenticated user; still RLS-scoped.
   @Get('branding')
   async branding(@Ctx() ctx: RequestContext): Promise<TenantBranding> {
     const row = await this.db.run((tx) =>
@@ -40,6 +42,7 @@ export class CoreController {
   }
 
   @Get('sites')
+  @RequirePermission('M1:dashboard:view')
   async sites(): Promise<Site[]> {
     const rows = await this.db.run((tx) => tx.select().from(schema.site));
     return rows.map(toSite);
