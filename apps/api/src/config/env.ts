@@ -7,10 +7,15 @@ const schema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   DATABASE_URL: z.string().default('postgres://pilotage:pilotage@localhost:5432/pilotage'),
   DATABASE_APP_ROLE: z.string().default('app_rw'),
+  // Fail-safe default: OFF. Must be explicitly opted into for local dev, and is
+  // hard-refused when NODE_ENV=production (see loadEnv below).
   AUTH_DEV_BYPASS: z
     .string()
-    .default('true')
-    .transform((v) => v !== 'false'),
+    .default('false')
+    .transform((v) => v === 'true'),
+  // Shared secret for the VPC-internal endpoints the data repo calls (device
+  // command claim/ack). Unset → dev only; required in production (see loadEnv).
+  INTERNAL_API_TOKEN: z.string().optional(),
   COGNITO_USER_POOL_ID: z.string().optional(),
   COGNITO_CLIENT_ID: z.string().optional(),
   COGNITO_REGION: z.string().default('eu-west-3'),
@@ -46,12 +51,11 @@ const schema = z.object({
     .string()
     .default('https://mon-compte-particulier.enedis.fr/dataconnect/v1/oauth2/authorize'),
 
-  // GRDF ADICT (gas) — bac à sable credentials, safe to commit (sandbox only).
-  // Override with real values via env in staging/prod.
-  GRDF_ADICT_CLIENT_ID: z.string().default('0oa9jtxcrtjrttQzx417'),
-  GRDF_ADICT_CLIENT_SECRET: z
-    .string()
-    .default('dbfCyZRDRQPtFWdvi7BE2aZpZUF-IS_6sN5olPbYPH1-oqVOFG7zT8bjbTmI3EhT'),
+  // GRDF ADICT (gas). Credentials are NEVER committed — supply them via env
+  // (Secrets Manager in AWS). Unset → the connector degrades to a synthetic
+  // history (simulation), same as Enedis/Pennylane.
+  GRDF_ADICT_CLIENT_ID: z.string().default(''),
+  GRDF_ADICT_CLIENT_SECRET: z.string().default(''),
   GRDF_ADICT_BASE_URL: z.string().default('https://api.grdf.fr/adict/v2'),
   GRDF_ADICT_TOKEN_URL: z
     .string()
@@ -90,7 +94,15 @@ export type Env = z.infer<typeof schema>;
 
 let cached: Env | null = null;
 export function loadEnv(): Env {
-  if (!cached) cached = schema.parse(process.env);
+  if (!cached) {
+    const env = schema.parse(process.env);
+    // Hard guarantee: the auth bypass can never be active in production, even if
+    // the env var is mis-set. Refuse to boot rather than run without auth.
+    if (env.AUTH_DEV_BYPASS && env.NODE_ENV === 'production') {
+      throw new Error('AUTH_DEV_BYPASS=true is forbidden when NODE_ENV=production');
+    }
+    cached = env;
+  }
   return cached;
 }
 

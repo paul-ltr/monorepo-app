@@ -1,9 +1,13 @@
 name: Deploy
 
-# Gated deploy. `dev` runs on merge to main; `staging`/`prod` require manual
-# dispatch and a protected GitHub Environment (reviewer approval). OIDC to AWS —
-# no static keys. Configure repo/environment vars: AWS_ROLE_ARN, WEB_BUCKET,
-# CF_DISTRIBUTION_ID, API_FUNCTION_NAME, and the TF state backend.
+# Safety model:
+#   * push to main       -> PLAN ONLY (no apply, no migrate, no deploy). Review the
+#                           plan before promoting; nothing mutates infra/DB on merge.
+#   * workflow_dispatch  -> APPLY + migrate + web/API deploy to the chosen env,
+#                           behind a GitHub Environment (protected — reviewer
+#                           approval — for staging/prod; require it on dev too).
+# OIDC to AWS — no static keys. Configure repo/environment vars: AWS_ROLE_ARN,
+# WEB_BUCKET, CF_DISTRIBUTION_ID, API_FUNCTION_NAME, API_BASE_URL, and the TF backend.
 
 on:
   push:
@@ -21,15 +25,40 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: deploy ${{ github.event.inputs.env || 'dev' }}
+  # Merge to main only PLANS (against dev) — a human promotes via workflow_dispatch.
+  plan:
+    if: github.event_name == 'push'
+    name: plan (dev)
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.env || 'dev' }} # protected for staging/prod
-    env:
-      TARGET: ${{ github.event.inputs.env || 'dev' }}
     steps:
       - uses: actions/checkout@v4
-      # Version comes from the root package.json `packageManager` field.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: '1.9.8' }
+      - run: pnpm install --frozen-lockfile
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-west-3
+      - name: Terraform plan (dev)
+        working-directory: infra/terraform/envs/dev
+        run: |
+          terraform init
+          terraform plan -input=false
+
+  # Manual, environment-gated apply + deploy.
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    name: deploy ${{ inputs.env }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.env }} # protect dev/staging/prod with reviewer approval
+    env:
+      TARGET: ${{ inputs.env }}
+    steps:
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
@@ -68,7 +97,7 @@ jobs:
           # plugin (NestJS DI needs emitDecoratorMetadata). See RUNBOOK.md.
           pnpm --filter @pilotage/api exec \
             esbuild src/lambda.ts --bundle --platform=node --target=node20 \
-            --outfile=apps/api/dist/lambda.js --external:aws-sdk || true
+            --outfile=apps/api/dist/lambda.js --external:aws-sdk
           (cd apps/api/dist && zip -q lambda.zip lambda.js)
           aws lambda update-function-code \
             --function-name "${{ vars.API_FUNCTION_NAME }}" \

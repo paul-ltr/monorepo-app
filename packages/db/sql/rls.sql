@@ -129,16 +129,65 @@ create or replace view core.v_price_effective as
     and (p.valid_from is null or p.valid_from <= now())
     and (p.valid_to is null or p.valid_to >= now());
 
--- Connector registry (Electrolux/energy/accounting/...). The data repo reads
--- this to know which provider accounts to pull from; `secret_ref` points at the
--- Secrets Manager entry holding the actual token (the secret is never in the DB).
+-- Connector routing table exposed as a stable view: the data repo reads this on
+-- every intake to resolve a provider delivery to its owning tenant/site + secret
+-- ref (see the data repo's ingestion/routing.py). `secret_ref` points at the
+-- Secrets Manager entry holding the actual token (never in the DB). Owner-owned
+-- → bypasses RLS.
 create or replace view core.v_connector_config as
   select id, tenant_id, site_id, kind, provider, status, secret_ref, last_sync_at
   from core.connector_config;
 
 grant usage on schema core to data_rw;
 grant select on core.v_tenant, core.v_site, core.v_machine, core.v_price_effective,
-                core.v_connector_config to data_rw;
+  core.v_connector_config to data_rw;
+
+-- ===========================================================================
+-- Device-command claim/ack for the data repo's `internal_api` mode (the default,
+-- preferred mechanism — ARCHITECTURE §2). The data repo calls the app's
+-- VPC-internal claim/ack endpoints, which run these SECURITY DEFINER functions.
+-- Owned by the migration role → they bypass RLS (like the views above), so the
+-- worker can drain the queue across ALL tenants WITHOUT granting data_rw any
+-- access to core, and without the app needing a per-request tenant context.
+-- ===========================================================================
+create or replace function core.claim_device_commands(p_limit int default 25)
+returns table (
+  id uuid, tenant_id uuid, site_id uuid, machine_id uuid,
+  type core.device_command_type, payload jsonb
+)
+language sql
+security definer
+set search_path = core, pg_temp
+as $$
+  update core.device_command
+     set status = 'sent'
+   where id in (
+     select id from core.device_command
+      where status = 'queued'
+      order by created_at
+      limit p_limit
+      for update skip locked
+   )
+  returning id, tenant_id, site_id, machine_id, type, payload;
+$$;
+
+create or replace function core.ack_device_command(p_id uuid, p_status text)
+returns void
+language sql
+security definer
+set search_path = core, pg_temp
+as $$
+  update core.device_command
+     set status = p_status::core.device_command_status,
+         executed_at = now()
+   where id = p_id;
+$$;
+
+-- Only the API role may drain/ack; never PUBLIC or data_rw.
+revoke all on function core.claim_device_commands(int) from public;
+revoke all on function core.ack_device_command(uuid, text) from public;
+grant execute on function core.claim_device_commands(int) to app_rw;
+grant execute on function core.ack_device_command(uuid, text) to app_rw;
 
 -- ===========================================================================
 -- Cross-tenant views for the LavoPilot back-office console (M12). Owned by the

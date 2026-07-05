@@ -16,6 +16,9 @@ import { requestContextStore } from '@/common/request-context';
 import { loadEnv } from '@/config/env';
 import { verifyCognitoToken } from './cognito';
 
+/** Cognito group whose members are LavoPilot back-office staff (superuser). */
+const STAFF_COGNITO_GROUP = 'lavopilot-staff';
+
 /**
  * Resolves the per-request identity and runs the rest of the request inside an
  * AsyncLocalStorage scope carrying it. Two modes:
@@ -32,26 +35,28 @@ export class AuthMiddleware implements NestMiddleware {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   async use(req: Request, _res: Response, next: NextFunction): Promise<void> {
-    const cognitoSub = await this.resolveSub(req);
-    const ctx = await this.buildContext(cognitoSub, req);
+    const identity = await this.resolveIdentity(req);
+    const ctx = await this.buildContext(identity, req);
     requestContextStore.run(ctx, () => next());
   }
 
-  private async resolveSub(req: Request): Promise<string> {
+  private async resolveIdentity(req: Request): Promise<{ sub: string; groups: string[] }> {
     if (this.env.AUTH_DEV_BYPASS) {
-      return (req.header('x-dev-user') ?? 'dev-sophie-diallo').trim();
+      return { sub: (req.header('x-dev-user') ?? 'dev-sophie-diallo').trim(), groups: [] };
     }
     const auth = req.header('authorization');
     if (!auth?.startsWith('Bearer ')) {
       throw new AppError('unauthenticated', 'Jeton manquant');
     }
-    const claims = await verifyCognitoToken(auth.slice(7), this.env);
-    return claims.sub;
+    return verifyCognitoToken(auth.slice(7), this.env);
   }
 
-  private async buildContext(cognitoSub: string, req: Request): Promise<RequestContext> {
+  private async buildContext(
+    identity: { sub: string; groups: string[] },
+    req: Request,
+  ): Promise<RequestContext> {
     const user = (
-      await this.db.select().from(schema.appUser).where(eq(schema.appUser.cognitoSub, cognitoSub)).limit(1)
+      await this.db.select().from(schema.appUser).where(eq(schema.appUser.cognitoSub, identity.sub)).limit(1)
     )[0];
     if (!user) throw new AppError('unauthenticated', 'Utilisateur inconnu');
 
@@ -87,8 +92,13 @@ export class AuthMiddleware implements NestMiddleware {
       permissions,
       scope: { type: 'tenant', id: user.tenantId },
       locale: user.locale ?? req.header('accept-language')?.split(',')[0] ?? 'fr-FR',
-      // Dev bypass trusts the operator; otherwise LavoPilot staff by email domain.
-      superuser: this.env.AUTH_DEV_BYPASS || isLavoPilotStaff(user.email),
+      // Back-office (superuser) membership must come from an IdP-verified Cognito
+      // group, NOT the (tenant-mutable) email column. The email-domain check is a
+      // dev-only convenience, reachable solely under AUTH_DEV_BYPASS — which is
+      // itself forbidden in production (see config/env.ts loadEnv).
+      superuser: this.env.AUTH_DEV_BYPASS
+        ? isLavoPilotStaff(user.email)
+        : identity.groups.includes(STAFF_COGNITO_GROUP),
     };
   }
 

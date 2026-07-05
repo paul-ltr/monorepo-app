@@ -59,7 +59,8 @@ alter default privileges in schema ingest
 alter default privileges in schema analytics
   grant select on tables to app_rw;
 
--- data_rw: RW on ingest/analytics.
-grant usage on schema ingest, analytics to data_rw;
+-- data_rw: RW on ingest/analytics, plus CREATE so the data repo's Alembic owns
+-- and creates the tables in those schemas (it runs the only DDL there).
+grant usage, create on schema ingest, analytics to data_rw;
 alter default privileges in schema ingest grant all on tables to data_rw;
 alter default privileges in schema analytics grant all on tables to data_rw;

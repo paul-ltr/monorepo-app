@@ -12,6 +12,7 @@ import { HealthController } from './modules/health.controller';
 import { CoreController } from './modules/core.controller';
 import { ReadController } from './modules/read.controller';
 import { ActionsController } from './modules/actions.controller';
+import { InternalController } from './modules/internal.controller';
 import { StubsController } from './modules/stubs.controller';
 import { SupportController, ConsoleController } from './modules/console.controller';
 import { ConsoleService } from './modules/console.service';
@@ -42,6 +43,7 @@ import { GrdfService } from './modules/grdf.service';
     CoreController,
     ReadController,
     ActionsController,
+    InternalController,
     StubsController,
     SupportController,
     ConsoleController,
@@ -79,6 +81,9 @@ export class AppModule implements NestModule {
         'connectors/enedis/callback',
         'connectors/pennylane/callback',
         'connectors/miele/callback',
+        // VPC-internal endpoints (data repo device-command worker): token-auth,
+        // not tenant/Cognito auth. See InternalController.
+        'internal/(.*)',
       )
       .forRoutes('*');
   }
