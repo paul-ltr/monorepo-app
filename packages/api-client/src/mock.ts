@@ -19,6 +19,10 @@ import {
   type ConnectedMeter,
   type ConnectorHistory,
   type EnergyProvider,
+  type ElectroluxAccount,
+  type ElectroluxAppliance,
+  type MieleAccount,
+  type MieleAppliance,
   applyConnectorHistories,
   buildDailyHistory,
   buildStateDistribution,
@@ -55,6 +59,17 @@ export function createMockClient(): PilotageApi {
 
   // Simulated Pennylane connection state (no live OAuth in mock mode).
   let pennylane = { connected: false, company: null as string | null, expiresAt: null as string | null };
+
+  // Simulated Electrolux OneApp/OCP state (no live login in mock mode).
+  const elxAccounts: ElectroluxAccount[] = [];
+  const elxAppliances: ElectroluxAppliance[] = [];
+  const elxStatus = () => ({ accounts: [...elxAccounts], appliances: [...elxAppliances], simulated: true });
+
+  // Simulated Miele state (no live OAuth in mock mode; the UI drives consent).
+  const mielePending = new Map<string, { vg: string; label?: string }>();
+  const mieleAccounts: MieleAccount[] = [];
+  const mieleAppliances: MieleAppliance[] = [];
+  const mieleStatusOf = () => ({ accounts: [...mieleAccounts], appliances: [...mieleAppliances], simulated: true });
 
   // Transient consent state for the simulated Enedis flow (state → prm + site).
   const enedisPending = new Map<string, { prm: string | null; siteId: string }>();
@@ -346,6 +361,139 @@ export function createMockClient(): PilotageApi {
     pennylaneDisconnect: () => {
       pennylane = { connected: false, company: null, expiresAt: null };
       return delay({ connected: false, company: null, simulated: true, expiresAt: null });
+    },
+
+    electroluxStatus: () => delay(elxStatus()),
+    electroluxConnect: (input) => {
+      const accountId = uid();
+      const brand = input.brand ?? 'electrolux';
+      const account: ElectroluxAccount = {
+        id: accountId,
+        label: input.label?.trim() || (input.email ? input.email : `Compte ${brand} (démo)`),
+        brand,
+        countryCode: input.countryCode ?? 'FR',
+        applianceCount: 3,
+        simulated: true,
+        connectedAt: new Date().toISOString(),
+      };
+      const demo: Array<[string, string, string, string]> = [
+        ['950011538000123', 'Lave-linge Pro WD6', 'WASHING_MACHINE', 'WD6-8'],
+        ['950011538000124', 'Sèche-linge Pro TD6', 'TUMBLE_DRYER', 'TD6-14'],
+        ['950011538000125', 'Lave-linge Pro WD6', 'WASHING_MACHINE', 'WD6-10'],
+      ];
+      const appliances: ElectroluxAppliance[] = demo.map(([id, name, type, model]) => ({
+        applianceId: `${accountId}-${id}`,
+        name,
+        type,
+        model,
+        serial: id,
+        connected: true,
+        accountId,
+        siteId: null,
+        siteName: null,
+        machineId: null,
+      }));
+      elxAccounts.push(account);
+      elxAppliances.push(...appliances);
+      return delay({
+        status: 'connected' as const,
+        account,
+        appliances,
+        message: `Compte Electrolux connecté (simulation) — ${appliances.length} appareils.`,
+        simulated: true,
+      });
+    },
+    electroluxAssociate: (input) => {
+      const appliance = elxAppliances.find(
+        (a) => a.applianceId === input.applianceId && a.accountId === input.accountId,
+      );
+      if (appliance) {
+        appliance.siteId = input.siteId;
+        appliance.siteName = sites.find((s) => s.id === input.siteId)?.name ?? null;
+        appliance.machineId = uid();
+      }
+      return delay(elxStatus());
+    },
+    electroluxDisconnect: (input) => {
+      const i = elxAccounts.findIndex((a) => a.id === input.accountId);
+      if (i >= 0) elxAccounts.splice(i, 1);
+      for (let j = elxAppliances.length - 1; j >= 0; j--)
+        if (elxAppliances[j]!.accountId === input.accountId) elxAppliances.splice(j, 1);
+      return delay(elxStatus());
+    },
+
+    mieleStatus: () => delay(mieleStatusOf()),
+    mieleAuthorize: (input) => {
+      const state = `miele-mock-${Math.random().toString(36).slice(2, 10)}`;
+      mielePending.set(state, { vg: input.vg ?? 'fr-FR', label: input.label });
+      // No live Miele in mock mode → the UI drives the simulated consent in-app.
+      return delay({ authorizeUrl: `#miele-consent/${state}`, state, simulated: true });
+    },
+    mieleComplete: (input) => {
+      const pending = mielePending.get(input.state);
+      if (!pending) {
+        return delay({
+          status: 'error' as const,
+          account: null,
+          appliances: [],
+          message: 'Consentement introuvable ou expiré. Relancez la connexion.',
+          simulated: true,
+        });
+      }
+      mielePending.delete(input.state);
+      const accountId = uid();
+      const account: MieleAccount = {
+        id: accountId,
+        label: pending.label?.trim() || `Compte Miele ${pending.vg}`,
+        vg: pending.vg,
+        applianceCount: 3,
+        simulated: true,
+        connectedAt: new Date().toISOString(),
+      };
+      const demo: Array<[string, string, string, string]> = [
+        ['000160212345', 'Lave-linge Miele PWM', 'Washing machine', 'PWM 507'],
+        ['000160212346', 'Sèche-linge Miele PDR', 'Tumble dryer', 'PDR 507'],
+        ['000160212347', 'Lave-linge séchant Miele', 'Washer dryer', 'WTR 870'],
+      ];
+      const appliances: MieleAppliance[] = demo.map(([id, name, type, model]) => ({
+        applianceId: `${accountId}-${id}`,
+        name,
+        type,
+        model,
+        serial: id,
+        connected: true,
+        accountId,
+        siteId: null,
+        siteName: null,
+        machineId: null,
+      }));
+      mieleAccounts.push(account);
+      mieleAppliances.push(...appliances);
+      return delay({
+        status: 'connected' as const,
+        account,
+        appliances,
+        message: `Compte Miele connecté (simulation) — ${appliances.length} appareils.`,
+        simulated: true,
+      });
+    },
+    mieleAssociate: (input) => {
+      const appliance = mieleAppliances.find(
+        (a) => a.applianceId === input.applianceId && a.accountId === input.accountId,
+      );
+      if (appliance) {
+        appliance.siteId = input.siteId;
+        appliance.siteName = sites.find((s) => s.id === input.siteId)?.name ?? null;
+        appliance.machineId = uid();
+      }
+      return delay(mieleStatusOf());
+    },
+    mieleDisconnect: (input) => {
+      const i = mieleAccounts.findIndex((a) => a.id === input.accountId);
+      if (i >= 0) mieleAccounts.splice(i, 1);
+      for (let j = mieleAppliances.length - 1; j >= 0; j--)
+        if (mieleAppliances[j]!.accountId === input.accountId) mieleAppliances.splice(j, 1);
+      return delay(mieleStatusOf());
     },
   };
 }
