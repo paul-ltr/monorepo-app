@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   doublePrecision,
   index,
   jsonb,
@@ -58,6 +59,10 @@ export const site = core.table(
     surfaceM2: doublePrecision('surface_m2'),
     /** E.164 phone number that receives SMS alerts for this site. */
     smsNumber: text('sms_number'),
+    /** Enedis PDL/PRM — 14 digits. Source of truth for the energy connector. */
+    pdl: text('pdl'),
+    /** GRDF PCE — 14 digits. Source of truth for the energy connector. */
+    pce: text('pce'),
     timezone: text('timezone').notNull().default('Europe/Paris'),
     openingHours: jsonb('opening_hours'),
     status: siteStatusEnum('status').notNull().default('active'),
@@ -69,6 +74,30 @@ export const site = core.table(
     index('site_tenant_idx').on(t.tenantId),
     index('site_network_idx').on(t.networkId),
   ],
+);
+
+/**
+ * Editable contact directory for a site (emails & phone numbers). Distinct from
+ * `site.sms_number` (the single SMS-alert recipient); a contact may opt into
+ * alerts via `is_alert_recipient`.
+ */
+export const siteContact = core.table(
+  'site_contact',
+  {
+    id: pk(),
+    tenantId: tenantIdCol().references(() => tenant.id, { onDelete: 'cascade' }),
+    siteId: uuid('site_id')
+      .notNull()
+      .references(() => site.id, { onDelete: 'cascade' }),
+    /** 'email' | 'phone'. */
+    kind: text('kind').notNull(),
+    value: text('value').notNull(),
+    /** Free-text role, e.g. « Gérant », « Astreinte ». */
+    label: text('label'),
+    isAlertRecipient: boolean('is_alert_recipient').notNull().default(false),
+    ...timestamps,
+  },
+  (t) => [index('site_contact_site_idx').on(t.siteId)],
 );
 
 /**

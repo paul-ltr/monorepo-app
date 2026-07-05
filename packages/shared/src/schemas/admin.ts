@@ -28,6 +28,12 @@ export const tenantBranding = z.object({
 });
 export type TenantBranding = z.infer<typeof tenantBranding>;
 
+/** 14-digit meter identifier (Enedis PDL/PRM, GRDF PCE) or null. */
+const meterId = z
+  .string()
+  .regex(/^\d{14}$/, '14 chiffres attendus')
+  .nullable();
+
 export const site = z.object({
   id: uuid,
   tenantId: uuid,
@@ -41,14 +47,42 @@ export const site = z.object({
   surfaceM2: z.number().nullable(), // for OPERAT
   /** E.164 phone number that receives SMS alerts for this site (null = none). */
   smsNumber: z.string().nullable(),
+  /** Enedis PDL/PRM — 14 digits (null = not set). */
+  pdl: meterId,
+  /** GRDF PCE — 14 digits (null = not set). */
+  pce: meterId,
   timezone: ianaTimezone.default('Europe/Paris'),
   status: siteStatus,
   openedAt: isoTimestamp.nullable(),
 });
 export type Site = z.infer<typeof site>;
 
-export const createSiteInput = site.omit({ id: true, tenantId: true });
+export const createSiteInput = site
+  .omit({ id: true, tenantId: true })
+  .partial()
+  .extend({ name: z.string().min(1) });
 export type CreateSiteInput = z.infer<typeof createSiteInput>;
+
+/** Partial in-place edit of a site (drives the auto-saving sites table). */
+export const updateSiteInput = z.object({
+  siteId: uuid,
+  patch: site
+    .pick({
+      name: true,
+      address: true,
+      city: true,
+      postalCode: true,
+      lat: true,
+      lng: true,
+      surfaceM2: true,
+      smsNumber: true,
+      pdl: true,
+      pce: true,
+      status: true,
+    })
+    .partial(),
+});
+export type UpdateSiteInput = z.infer<typeof updateSiteInput>;
 
 /** Update the SMS alert recipient for one site. */
 export const updateSiteSmsInput = z.object({
@@ -56,6 +90,26 @@ export const updateSiteSmsInput = z.object({
   smsNumber: z.string().nullable(),
 });
 export type UpdateSiteSmsInput = z.infer<typeof updateSiteSmsInput>;
+
+/** Site contact directory entry (email or phone). */
+export const siteContact = z.object({
+  id: uuid,
+  siteId: uuid,
+  kind: z.enum(['email', 'phone']),
+  value: z.string().min(1),
+  label: z.string().nullable(),
+  isAlertRecipient: z.boolean(),
+});
+export type SiteContact = z.infer<typeof siteContact>;
+
+export const siteContactInput = z.object({
+  siteId: uuid,
+  kind: z.enum(['email', 'phone']),
+  value: z.string().min(1),
+  label: z.string().nullable().default(null),
+  isAlertRecipient: z.boolean().default(false),
+});
+export type SiteContactInput = z.infer<typeof siteContactInput>;
 
 export const appUser = z.object({
   id: uuid,
@@ -77,6 +131,15 @@ export const inviteUserInput = z.object({
   scopeId: uuid.optional(),
 });
 export type InviteUserInput = z.infer<typeof inviteUserInput>;
+
+/** Replace the role assignment of an existing user. */
+export const updateUserRolesInput = z.object({
+  userId: uuid,
+  roleKeys: z.array(z.string()).min(1),
+  scopeType: z.enum(['tenant', 'network', 'site']).default('tenant'),
+  scopeId: uuid.optional(),
+});
+export type UpdateUserRolesInput = z.infer<typeof updateUserRolesInput>;
 
 export const role = z.object({
   id: uuid,

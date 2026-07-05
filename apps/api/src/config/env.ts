@@ -14,14 +14,20 @@ const schema = z.object({
   COGNITO_USER_POOL_ID: z.string().optional(),
   COGNITO_CLIENT_ID: z.string().optional(),
   COGNITO_REGION: z.string().default('eu-west-3'),
+  // AWS region for Secrets Manager / Cognito admin calls (falls back to Cognito's).
+  AWS_REGION: z.string().optional(),
   MISTRAL_API_KEY: z.string().optional(),
   MISTRAL_MODEL_SMALL: z.string().default('mistral-small-latest'),
   MISTRAL_MODEL_LARGE: z.string().default('mistral-large-latest'),
   LLM_TENANT_MONTHLY_TOKEN_CAP: z.coerce.number().default(2_000_000),
   // Comma-separated module overrides, e.g. "M8,M10=false" (enables Should/Could).
   FEATURE_FLAGS: z.string().optional(),
-  // Transactional email (Brevo) — used by the public demo/contact form.
+  // Transactional email (Brevo). The API key now lives in AWS Secrets Manager
+  // (one key for all tenants) at BREVO_SECRET_ID; BREVO_API_KEY stays as a local
+  // dev fallback so email works offline without AWS.
   BREVO_API_KEY: z.string().optional(),
+  BREVO_SECRET_ID: z.string().optional(),
+  BREVO_SENDER_NAME: z.string().default('LavoPilot'),
   LEADS_TO_EMAIL: z.string().default('paul@lavopilot.com'),
   LEADS_FROM_EMAIL: z.string().default('no-reply@lavopilot.com'),
 

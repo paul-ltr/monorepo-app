@@ -16,6 +16,8 @@ import {
   type CreateCampaignInput,
   type CampaignStatus,
   type Site,
+  type SiteContact,
+  type AppUser,
   type ConnectedMeter,
   type ConnectorHistory,
   type EnergyProvider,
@@ -51,6 +53,17 @@ export function createMockClient(): PilotageApi {
   const campaigns: Campaign[] = f.customers.campaigns.map((c) => ({ ...c }));
   // Mutable copy so per-site SMS edits persist within a session.
   const sites: Site[] = f.sites.map((s) => ({ ...s }));
+  // Per-site contact directory (email/phone), mutable within a session.
+  const siteContacts: SiteContact[] = [
+    { id: uid(), siteId: sites[0]!.id, kind: 'email', value: 'gerant.lyon3@exemple.fr', label: 'Gérant', isAlertRecipient: true },
+    { id: uid(), siteId: sites[0]!.id, kind: 'phone', value: '+33 6 11 22 33 44', label: 'Astreinte', isAlertRecipient: false },
+  ];
+  // Tenant users, mutable within a session (invitations, role changes).
+  const users: AppUser[] = [
+    { id: uid(), tenantId: f.session.tenant.id, email: f.session.user.email, fullName: f.session.user.fullName, locale: 'fr-FR', status: 'active', lastLoginAt: new Date().toISOString(), roles: ['owner'] },
+    { id: uid(), tenantId: f.session.tenant.id, email: 'manager@exemple.fr', fullName: 'Camille Martin', locale: 'fr-FR', status: 'active', lastLoginAt: null, roles: ['manager'] },
+    { id: uid(), tenantId: f.session.tenant.id, email: 'compta@exemple.fr', fullName: 'Alex Dubois', locale: 'fr-FR', status: 'invited', lastLoginAt: null, roles: ['accountant'] },
+  ];
   let seq = 1043;
   let maintSeq = 2242;
 
@@ -191,6 +204,84 @@ export function createMockClient(): PilotageApi {
       if (!site) return Promise.reject(new Error('site not found'));
       site.smsNumber = input.smsNumber;
       return delay({ ...site });
+    },
+    createSite: (input) => {
+      const site: Site = {
+        id: uid(),
+        tenantId: f.session.tenant.id,
+        networkId: input.networkId ?? f.sites[0]!.networkId,
+        name: input.name,
+        address: input.address ?? null,
+        city: input.city ?? null,
+        postalCode: input.postalCode ?? null,
+        lat: input.lat ?? null,
+        lng: input.lng ?? null,
+        surfaceM2: input.surfaceM2 ?? null,
+        smsNumber: input.smsNumber ?? null,
+        pdl: input.pdl ?? null,
+        pce: input.pce ?? null,
+        timezone: input.timezone ?? 'Europe/Paris',
+        status: input.status ?? 'active',
+        openedAt: input.openedAt ?? null,
+      };
+      sites.unshift(site);
+      return delay({ ...site });
+    },
+    updateSite: (input) => {
+      const site = sites.find((s) => s.id === input.siteId);
+      if (!site) return Promise.reject(new Error('site not found'));
+      Object.assign(site, input.patch);
+      return delay({ ...site });
+    },
+    deleteSite: (id) => {
+      const i = sites.findIndex((s) => s.id === id);
+      if (i >= 0) sites.splice(i, 1);
+      return delay({ ok: true as const });
+    },
+    getSiteContacts: (siteId) => delay(siteContacts.filter((c) => c.siteId === siteId).map((c) => ({ ...c }))),
+    addSiteContact: (input) => {
+      const contact: SiteContact = {
+        id: uid(),
+        siteId: input.siteId,
+        kind: input.kind,
+        value: input.value,
+        label: input.label ?? null,
+        isAlertRecipient: input.isAlertRecipient ?? false,
+      };
+      siteContacts.push(contact);
+      return delay({ ...contact });
+    },
+    removeSiteContact: (_siteId, contactId) => {
+      const i = siteContacts.findIndex((c) => c.id === contactId);
+      if (i >= 0) siteContacts.splice(i, 1);
+      return delay({ ok: true as const });
+    },
+    getUsers: () => delay(users.map((u) => ({ ...u }))),
+    inviteUser: (input) => {
+      const user: AppUser = {
+        id: uid(),
+        tenantId: f.session.tenant.id,
+        email: input.email,
+        fullName: input.fullName,
+        locale: 'fr-FR',
+        status: 'invited',
+        lastLoginAt: null,
+        roles: [...input.roleKeys],
+      };
+      users.unshift(user);
+      return delay({ ...user });
+    },
+    updateUserRoles: (input) => {
+      const user = users.find((u) => u.id === input.userId);
+      if (!user) return Promise.reject(new Error('user not found'));
+      user.roles = [...input.roleKeys];
+      return delay({ ...user });
+    },
+    disableUser: (id) => {
+      const user = users.find((u) => u.id === id);
+      if (!user) return Promise.reject(new Error('user not found'));
+      user.status = 'disabled';
+      return delay({ ...user });
     },
 
     createSupportTicket: (input: CreateSupportTicketInput) => {

@@ -10,10 +10,12 @@ import type {
 } from '@pilotage/shared';
 import { useApi } from '@/lib/api';
 import { useScope } from '@/lib/scope';
-import { useAppParams, emptySiteParams, type SiteParams } from '@/lib/params';
-import { Button, Card, ScreenHeader, SectionCard, Segmented, Switch } from '@/components/ui';
+import { useSession } from '@/lib/hooks';
+import { Button, Card, ScreenHeader, SectionCard, Segmented } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { AddressField } from '@/components/AddressField';
+import { SitesAdmin } from './settings/SitesAdmin';
+import { UsersAdmin } from './settings/UsersAdmin';
 import { useToast } from '@/components/Toast';
 import { QueryBoundary } from '@/components/state';
 import { cn } from '@/lib/cn';
@@ -32,6 +34,8 @@ export function Settings() {
   const { t } = useTranslation();
   const api = useApi();
   const query = useQuery({ queryKey: ['admin'], queryFn: () => api.getAdmin() });
+  const session = useSession();
+  const canManageUsers = session.data?.permissions.includes('M12:users:manage') ?? false;
   const [overrides, setOverrides] = useState<Record<string, ConnectorStatus>>({});
 
   const connect = (id: string) => {
@@ -110,13 +114,12 @@ export function Settings() {
               </div>
             </Card>
 
-            <SiteParamsSection />
-            <BrevoConfig />
+            <SitesAdmin />
+            {canManageUsers && <UsersAdmin />}
             <EnedisConfig />
             <GrdfConfig />
             <ElectroluxConfig />
             <MieleConfig />
-            <SitesSmsConfig />
 
             <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[1.5fr_1fr]">
               <SectionCard
@@ -167,87 +170,6 @@ export function Settings() {
         )}
       </QueryBoundary>
     </>
-  );
-}
-
-/**
- * Per-site SMS alert recipient. The phone number set here receives the critical
- * SMS alerts toggled on the Notifications → Préférences panel.
- */
-function SitesSmsConfig() {
-  const api = useApi();
-  const query = useQuery({ queryKey: ['sites'], queryFn: () => api.getSites() });
-  return (
-    <SectionCard
-      className="mb-[18px]"
-      title="Sites & alertes SMS"
-      subtitle="Numéro qui reçoit les SMS d'alerte critique, par site"
-    >
-      <QueryBoundary query={query}>
-        {(sites) =>
-          sites.length === 0 ? (
-            <div className="px-[18px] py-8 text-center text-[12.5px] text-fg-subtle">Aucun site.</div>
-          ) : (
-            sites.map((s) => <SiteSmsRow key={s.id} site={s} />)
-          )
-        }
-      </QueryBoundary>
-    </SectionCard>
-  );
-}
-
-function SiteSmsRow({ site }: { site: Site }) {
-  const api = useApi();
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [value, setValue] = useState(site.smsNumber ?? '');
-
-  // Keep the field in sync if the underlying site refetches.
-  useEffect(() => {
-    setValue(site.smsNumber ?? '');
-  }, [site.smsNumber]);
-
-  const save = useMutation({
-    mutationFn: () => api.updateSiteSms({ siteId: site.id, smsNumber: value.trim() === '' ? null : value.trim() }),
-    onSuccess: (updated) => {
-      qc.invalidateQueries({ queryKey: ['sites'] });
-      toast(
-        updated.smsNumber ? `Numéro SMS enregistré pour « ${site.name} ».` : `Numéro SMS retiré pour « ${site.name} ».`,
-      );
-    },
-    onError: () => toast('Échec de l’enregistrement du numéro SMS.', 'danger'),
-  });
-
-  const current = site.smsNumber ?? '';
-  const dirty = value.trim() !== current;
-
-  return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-border px-[18px] py-3 last:border-b-0">
-      <div className="min-w-[180px] flex-1">
-        <div className="text-[13px] font-semibold">{site.name}</div>
-        <div className="text-[11px] text-fg-subtle">
-          {site.city ?? '—'}
-          {site.smsNumber ? '' : ' · aucun numéro'}
-        </div>
-      </div>
-      <input
-        type="tel"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="+33 6 12 34 56 78"
-        aria-label={`Numéro SMS pour ${site.name}`}
-        className={fieldCls('flex-1')}
-      />
-      <Button
-        variant="secondary"
-        size="sm"
-        icon="check"
-        disabled={!dirty || save.isPending}
-        onClick={() => save.mutate()}
-      >
-        {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
-      </Button>
-    </div>
   );
 }
 
@@ -746,116 +668,6 @@ function GrdfConfig() {
 }
 
 /**
- * M12 — per-site parameters. An admin picks a site and edits its address (via the
- * gouv BAN autocomplete) and energy identifiers (PDL / PCE, 14 digits). Stored
- * client-side per site; a live build persists to core.site / connector_config.
- */
-function SiteParamsSection() {
-  const { sites } = useScope();
-  const { toast } = useToast();
-  const [params, setParams] = useAppParams();
-  const [siteId, setSiteId] = useState('');
-  const [draft, setDraft] = useState<SiteParams>(emptySiteParams());
-
-  // Default to the first site once the list loads.
-  useEffect(() => {
-    if (!siteId && sites.length) setSiteId(sites[0]!.id);
-  }, [sites, siteId]);
-
-  // Load the selected site's saved params (falling back to its known address).
-  useEffect(() => {
-    if (!siteId) return;
-    const stored = params.sites[siteId];
-    const site = sites.find((s) => s.id === siteId);
-    setDraft(stored ?? { ...emptySiteParams(), address: site?.address ?? '' });
-  }, [siteId]);
-
-  const pdlOk = draft.pdl === '' || draft.pdl.length === 14;
-  const pceOk = draft.pce === '' || draft.pce.length === 14;
-
-  const save = () => {
-    if (!siteId) return;
-    setParams({ sites: { [siteId]: draft } });
-    toast(`Paramètres du site « ${sites.find((s) => s.id === siteId)?.name ?? ''} » enregistrés.`);
-  };
-
-  return (
-    <SectionCard
-      className="mb-[18px]"
-      title="Paramètres par site"
-      subtitle="Adresse et identifiants énergie (PDL / PCE) configurés site par site."
-    >
-      <div className="flex flex-col gap-4 p-[18px]">
-        {/* Clean site picker (replaces the previous cramped dropdown). */}
-        <div className="flex flex-wrap gap-2">
-          {sites.map((s) => {
-            const active = s.id === siteId;
-            const configured = !!params.sites[s.id]?.pdl || !!params.sites[s.id]?.pce;
-            return (
-              <button
-                key={s.id}
-                onClick={() => setSiteId(s.id)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-[9px] border px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
-                  active
-                    ? 'border-primary bg-primary text-primary-fg'
-                    : 'border-border bg-surface text-fg-muted hover:border-border-strong',
-                )}
-              >
-                {configured && <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-white' : 'bg-ok')} />}
-                {s.name}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-          <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-[11px] font-semibold text-fg-subtle">Adresse du site</span>
-            <AddressField value={draft.address} onChange={(v) => setDraft((d) => ({ ...d, address: v }))} />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-fg-subtle">PDL / PRM Enedis (14 chiffres)</span>
-            <input
-              value={draft.pdl}
-              onChange={(e) => setDraft((d) => ({ ...d, pdl: digits14(e.target.value) }))}
-              inputMode="numeric"
-              placeholder="12345678901234"
-              className={fieldCls('font-mono')}
-            />
-            <span className={cn('text-[10.5px]', draft.pdl === '' ? 'text-fg-subtle' : pdlOk ? 'text-ok' : 'text-danger')}>
-              {draft.pdl.length}/14 chiffres
-            </span>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-fg-subtle">PCE GRDF (14 chiffres)</span>
-            <input
-              value={draft.pce}
-              onChange={(e) => setDraft((d) => ({ ...d, pce: digits14(e.target.value) }))}
-              inputMode="numeric"
-              placeholder="12345678901234"
-              className={fieldCls('font-mono')}
-            />
-            <span className={cn('text-[10.5px]', draft.pce === '' ? 'text-fg-subtle' : pceOk ? 'text-ok' : 'text-danger')}>
-              {draft.pce.length}/14 chiffres
-            </span>
-          </label>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button variant="primary" icon="check" onClick={save} disabled={!siteId || !pdlOk || !pceOk}>
-            Enregistrer le site
-          </Button>
-          <span className="text-[11.5px] text-fg-subtle">
-            Adresse recherchée via l’API Adresse (data.gouv.fr). Le PDL est confirmé au consentement Enedis ci-dessous.
-          </span>
-        </div>
-      </div>
-    </SectionCard>
-  );
-}
-
-/**
  * M1/M12 — Electrolux OneApp/OCP connector. Log an Electrolux (or AEG) group
  * account in with email + password, list its appliances, then associate each one
  * with a shop (site) — which materialises a machine in supervision. Several
@@ -1320,78 +1132,6 @@ function MieleConfig() {
             </Button>
           </div>
         )}
-      </div>
-    </SectionCard>
-  );
-}
-
-/**
- * M12 — Brevo (messaging) self-service configuration. The admin sets the sender
- * identity and API key. The key itself is never stored client-side — only the
- * fact that one was provided (a live build writes it to Secrets Manager).
- */
-function BrevoConfig() {
-  const { toast } = useToast();
-  const [params, setParams] = useAppParams();
-  const b = params.brevo;
-  const [enabled, setEnabled] = useState(b.enabled);
-  const [senderName, setSenderName] = useState(b.senderName);
-  const [senderEmail, setSenderEmail] = useState(b.senderEmail);
-  const [apiKey, setApiKey] = useState('');
-
-  const save = () => {
-    setParams({
-      brevo: {
-        enabled,
-        senderName: senderName.trim(),
-        senderEmail: senderEmail.trim(),
-        keyConfigured: b.keyConfigured || apiKey.trim().length > 0,
-      },
-    });
-    setApiKey('');
-    toast('Configuration Brevo enregistrée.');
-  };
-
-  return (
-    <SectionCard
-      className="mb-[18px]"
-      title="Brevo · messagerie (SMS / e-mail)"
-      subtitle="Paramétrez l’expéditeur et la clé API utilisés pour les notifications clients."
-    >
-      <div className="flex flex-col gap-4 p-[18px]">
-        <Switch checked={enabled} onChange={setEnabled} label="Activer l’envoi via Brevo" />
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-fg-subtle">Nom de l’expéditeur</span>
-            <input value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="LavoPilot" className={fieldCls()} />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-fg-subtle">E-mail expéditeur</span>
-            <input value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} type="email" placeholder="no-reply@laverie.fr" className={fieldCls()} />
-          </label>
-          <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-[11px] font-semibold text-fg-subtle">
-              Clé API Brevo {b.keyConfigured && <span className="text-ok">· configurée ✓</span>}
-            </span>
-            <input
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              type="password"
-              placeholder={b.keyConfigured ? '•••••••••• (laisser vide pour conserver)' : 'xkeysib-…'}
-              className={fieldCls('font-mono')}
-              autoComplete="off"
-            />
-          </label>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="primary" icon="check" onClick={save}>
-            Enregistrer
-          </Button>
-          <span className="flex items-center gap-1.5 text-[11.5px] text-fg-subtle">
-            <Icon name="shield" size={13} className="text-fg-subtle" />
-            La clé est transmise au coffre de secrets — jamais stockée en clair dans le navigateur.
-          </span>
-        </div>
       </div>
     </SectionCard>
   );

@@ -35,10 +35,10 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     return res.json() as Promise<T>;
   }
 
-  async function post<T>(path: string, body?: unknown): Promise<T> {
+  async function send<T>(method: 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
     const token = opts.getToken?.();
     const res = await fetch(`${opts.baseUrl}${path}`, {
-      method: 'POST',
+      method,
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
@@ -52,6 +52,9 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     }
     return res.json() as Promise<T>;
   }
+  const post = <T>(path: string, body?: unknown) => send<T>('POST', path, body);
+  const patch = <T>(path: string, body?: unknown) => send<T>('PATCH', path, body);
+  const del = <T>(path: string) => send<T>('DELETE', path);
 
   return {
     getSession: () => get('/me'),
@@ -80,6 +83,16 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     getNotifications: () => get('/notifications'),
     getSites: () => get('/sites'),
     updateSiteSms: (input) => post(`/sites/${input.siteId}/sms`, { smsNumber: input.smsNumber }),
+    createSite: (input) => post('/sites', input),
+    updateSite: (input) => patch(`/sites/${input.siteId}`, input.patch),
+    deleteSite: (id) => del(`/sites/${id}`),
+    getSiteContacts: (siteId) => get(`/sites/${siteId}/contacts`),
+    addSiteContact: (input) => post(`/sites/${input.siteId}/contacts`, input),
+    removeSiteContact: (siteId, contactId) => del(`/sites/${siteId}/contacts/${contactId}`),
+    getUsers: () => get('/users'),
+    inviteUser: (input) => post('/users/invite', input),
+    updateUserRoles: (input) => patch(`/users/${input.userId}/roles`, input),
+    disableUser: (id) => post(`/users/${id}/disable`),
     createSupportTicket: (input) => post('/support/tickets', input),
     getSupportTickets: () => get('/console/tickets'),
     replySupportTicket: (input) => post(`/console/tickets/${input.ticketId}/reply`, input),

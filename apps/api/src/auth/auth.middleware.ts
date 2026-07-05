@@ -1,7 +1,7 @@
-import { Inject, Injectable, type NestMiddleware } from '@nestjs/common';
+import { Inject, Injectable, Logger, type NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { eq } from 'drizzle-orm';
-import { schema, type Database } from '@pilotage/db';
+import { schema, withTenantContext, type Database } from '@pilotage/db';
 import {
   AppError,
   ROLE_PERMISSIONS,
@@ -27,6 +27,7 @@ import { verifyCognitoToken } from './cognito';
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
   private readonly env = loadEnv();
+  private readonly logger = new Logger(AuthMiddleware.name);
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
@@ -62,6 +63,21 @@ export class AuthMiddleware implements NestMiddleware {
 
     const roles = userRoles.map((r) => r.key);
     const permissions = this.permissionsFor(roles);
+
+    // First successful sign-in of an invited user flips them to active. Written
+    // inside the user's own tenant context so RLS (app_rw is not BYPASSRLS)
+    // permits the update; fire-and-forget so auth latency is unaffected.
+    if (user.status === 'invited') {
+      void withTenantContext(
+        this.db,
+        { tenantId: user.tenantId, userId: user.id, role: this.env.DATABASE_APP_ROLE },
+        (tx) =>
+          tx
+            .update(schema.appUser)
+            .set({ status: 'active', lastLoginAt: new Date() })
+            .where(eq(schema.appUser.id, user.id)),
+      ).catch((err) => this.logger.warn(`activate-on-login failed for ${user.id}: ${err.message}`));
+    }
 
     return {
       userId: user.id,

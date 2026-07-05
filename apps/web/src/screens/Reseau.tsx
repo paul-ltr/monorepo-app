@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { Site, SiteRanking } from '@pilotage/shared';
@@ -337,41 +337,38 @@ function RoyaltyInvoiceModal({
   );
 }
 
-/** M9/M12 — the sites registry: list, filter, open, and add (mock) network sites. */
+/** M9/M12 — the sites registry: list, filter, open, and create network sites. */
 function SitesManager({ sites, onOpen }: { sites: Site[]; onOpen: (siteId: string) => void }) {
+  const api = useApi();
+  const qc = useQueryClient();
   const { toast } = useToast();
-  const [added, setAdded] = useState<Site[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [surface, setSurface] = useState('');
 
-  const all = [...sites, ...added];
+  const all = sites;
 
+  const create = useMutation({
+    mutationFn: () =>
+      api.createSite({
+        name: name.trim(),
+        city: city.trim() || null,
+        surfaceM2: surface ? Number(surface) : null,
+        status: 'active',
+      }),
+    onSuccess: (site) => {
+      qc.invalidateQueries({ queryKey: ['sites'] });
+      setName('');
+      setCity('');
+      setSurface('');
+      setShowForm(false);
+      toast(`Site « ${site.name} » ajouté au réseau.`);
+    },
+    onError: () => toast('Échec de la création du site.', 'danger'),
+  });
   const submit = () => {
-    if (!name.trim()) return;
-    const site: Site = {
-      id: `local-${added.length + 1}`,
-      tenantId: sites[0]?.tenantId ?? 'local',
-      networkId: sites[0]?.networkId ?? null,
-      name: name.trim(),
-      address: null,
-      city: city.trim() || null,
-      postalCode: null,
-      lat: null,
-      lng: null,
-      surfaceM2: surface ? Number(surface) : null,
-      smsNumber: null,
-      timezone: 'Europe/Paris',
-      status: 'paused',
-      openedAt: null,
-    };
-    setAdded((a) => [...a, site]);
-    setName('');
-    setCity('');
-    setSurface('');
-    setShowForm(false);
-    toast(`Site « ${site.name} » ajouté au réseau.`);
+    if (name.trim()) create.mutate();
   };
 
   return (
@@ -390,8 +387,8 @@ function SitesManager({ sites, onOpen }: { sites: Site[]; onOpen: (siteId: strin
           <Field label="Nom du site" value={name} onChange={setName} placeholder="Lyon-8 Monplaisir" wide />
           <Field label="Ville" value={city} onChange={setCity} placeholder="Lyon" />
           <Field label="Surface (m²)" value={surface} onChange={setSurface} placeholder="150" type="number" />
-          <Button variant="primary" size="md" onClick={submit} disabled={!name.trim()}>
-            Enregistrer
+          <Button variant="primary" size="md" onClick={submit} disabled={!name.trim() || create.isPending}>
+            {create.isPending ? 'Création…' : 'Enregistrer'}
           </Button>
           <Button variant="secondary" size="md" onClick={() => setShowForm(false)}>
             Annuler
