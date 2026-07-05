@@ -2,9 +2,9 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * Client-side, admin-configurable app parameters. In the mock/demo these live in
- * localStorage; with the backend they map to `core` connector/config rows. Kept
- * out of the API contract so the UI can be exercised offline. Secrets (API keys)
- * are never persisted here — only the fact that one was configured.
+ * localStorage. Per-site energy identifiers (PDL/PCE), addresses and contacts and
+ * the Brevo API key are now persisted server-side (core.site + AWS Secrets
+ * Manager) and no longer kept here.
  */
 export interface TicketForwardingConfig {
   /** Forward newly-created maintenance tickets to an external GMAO/helpdesk. */
@@ -15,37 +15,13 @@ export interface TicketForwardingConfig {
   target: string;
 }
 
-export interface BrevoConfig {
-  enabled: boolean;
-  senderName: string;
-  senderEmail: string;
-  /** True once an API key was saved server-side (the key itself is never stored here). */
-  keyConfigured: boolean;
-}
-
-/** Per-site parameters an admin can set (energy identifiers, address). */
-export interface SiteParams {
-  address: string;
-  /** Enedis PDL/PRM — 14 digits. */
-  pdl: string;
-  /** GRDF PCE — 14 digits. */
-  pce: string;
-}
-
 export interface AppParams {
   ticketForwarding: TicketForwardingConfig;
-  brevo: BrevoConfig;
-  /** Per-site parameter overrides, keyed by site id. */
-  sites: Record<string, SiteParams>;
 }
 
 const DEFAULTS: AppParams = {
   ticketForwarding: { enabled: false, software: '', target: '' },
-  brevo: { enabled: false, senderName: '', senderEmail: '', keyConfigured: false },
-  sites: {},
 };
-
-export const emptySiteParams = (): SiteParams => ({ address: '', pdl: '', pce: '' });
 
 const KEY = 'pilotage-app-params';
 
@@ -56,8 +32,6 @@ function load(): AppParams {
     const p = JSON.parse(raw) as Partial<AppParams>;
     return {
       ticketForwarding: { ...DEFAULTS.ticketForwarding, ...(p.ticketForwarding ?? {}) },
-      brevo: { ...DEFAULTS.brevo, ...(p.brevo ?? {}) },
-      sites: p.sites ?? {},
     };
   } catch {
     return DEFAULTS;
@@ -80,8 +54,6 @@ function persist() {
 export function setAppParams(patch: Partial<AppParams>) {
   current = {
     ticketForwarding: { ...current.ticketForwarding, ...(patch.ticketForwarding ?? {}) },
-    brevo: { ...current.brevo, ...(patch.brevo ?? {}) },
-    sites: { ...current.sites, ...(patch.sites ?? {}) },
   };
   persist();
 }

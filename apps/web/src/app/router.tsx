@@ -12,6 +12,7 @@ import { Reseau } from '@/screens/Reseau';
 import { Settings } from '@/screens/Settings';
 import { Notifications } from '@/screens/Notifications';
 import { AdminConsole } from '@/screens/AdminConsole';
+import { Onboarding } from '@/screens/Onboarding';
 
 const rootRoute = createRootRoute({ component: Shell });
 
@@ -27,6 +28,7 @@ const routeTree = rootRoute.addChildren([
   createRoute({ getParentRoute: () => rootRoute, path: '/finances', component: Finances }),
   createRoute({ getParentRoute: () => rootRoute, path: '/reseau', component: Reseau }),
   createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: Settings }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/onboarding', component: Onboarding }),
   createRoute({ getParentRoute: () => rootRoute, path: '/notifications', component: Notifications }),
   createRoute({ getParentRoute: () => rootRoute, path: '/console', component: AdminConsole }),
 ]);

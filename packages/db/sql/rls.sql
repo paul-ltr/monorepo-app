@@ -23,7 +23,7 @@ do $$
 declare
   t text;
   uniform text[] := array[
-    'network','tenant_branding','site','app_user',
+    'network','tenant_branding','site','site_contact','app_user',
     'payment_central','machine','program',
     'price_plan','price','promotion',
     'customer','wallet','loyalty_account','loyalty_transaction',
@@ -111,7 +111,7 @@ create or replace view core.v_tenant as
 
 create or replace view core.v_site as
   select id, tenant_id, network_id, name, city, postal_code, lat, lng,
-         surface_m2, timezone, status
+         surface_m2, timezone, status, pdl, pce
   from core.site
   where deleted_at is null;
 

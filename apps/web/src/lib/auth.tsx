@@ -8,6 +8,12 @@ export interface AuthUser {
 interface AuthCtx {
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
+  /**
+   * Finish an invited user's first sign-in by setting a permanent password.
+   * Integration seam for Cognito's NEW_PASSWORD_REQUIRED challenge; in mock/dev
+   * it simply resolves so the onboarding wizard can proceed.
+   */
+  completeNewPassword: (password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -30,6 +36,7 @@ function readStored(): AuthUser | null {
 const AuthContext = createContext<AuthCtx>({
   user: null,
   login: async () => {},
+  completeNewPassword: async () => {},
   logout: () => {},
 });
 
@@ -59,6 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(next);
   }, []);
 
+  const completeNewPassword = useCallback(async (password: string) => {
+    if (password.trim().length < 8) throw new Error('weak_password');
+    // Mock/dev: nothing to persist — the user is already signed in. Real Cognito
+    // completeNewPassword(challenge, password) plugs in here when mocks are off.
+    if (!env.useMocks && !env.authDevBypass) {
+      // TODO: wire Amazon Cognito NEW_PASSWORD_REQUIRED completion here.
+      throw new Error('auth_not_configured');
+    }
+  }, []);
+
   const logout = useCallback(() => {
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -68,7 +85,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout]);
+  const value = useMemo(
+    () => ({ user, login, completeNewPassword, logout }),
+    [user, login, completeNewPassword, logout],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

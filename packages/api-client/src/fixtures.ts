@@ -71,14 +71,14 @@ export const session: SessionInfo = {
 
 export const sites: Site[] = (
   [
-    ['Lyon-3 Guillotière', '14 cours Gambetta', 'Lyon', '69003', 220, 45.7538, 4.8494, '2021-03-15', 'active', '+33 6 12 34 56 78'],
-    ['Paris-11 Voltaire', '92 boulevard Voltaire', 'Paris', '75011', 180, 48.8583, 2.3796, '2022-06-01', 'active', '+33 6 23 45 67 89'],
-    ['Villeurbanne Gratte-Ciel', '8 avenue Henri Barbusse', 'Villeurbanne', '69100', 160, 45.7719, 4.8795, '2022-09-12', 'active', null],
-    ['Lyon-7 Jean Macé', '31 rue de Marseille', 'Lyon', '69007', 140, 45.7448, 4.8422, '2023-01-20', 'active', null],
-    ['Vénissieux Centre', '5 place Léon Sublet', 'Vénissieux', '69200', 200, 45.6975, 4.8869, '2020-11-05', 'active', '+33 6 34 56 78 90'],
-    ['Bron Terraillon', '20 rue Guynemer', 'Bron', '69500', 120, 45.7333, 4.9106, '2024-02-28', 'paused', null],
+    ['Lyon-3 Guillotière', '14 cours Gambetta', 'Lyon', '69003', 220, 45.7538, 4.8494, '2021-03-15', 'active', '+33 6 12 34 56 78', '12345678901234', '98765432109876'],
+    ['Paris-11 Voltaire', '92 boulevard Voltaire', 'Paris', '75011', 180, 48.8583, 2.3796, '2022-06-01', 'active', '+33 6 23 45 67 89', '22345678901234', null],
+    ['Villeurbanne Gratte-Ciel', '8 avenue Henri Barbusse', 'Villeurbanne', '69100', 160, 45.7719, 4.8795, '2022-09-12', 'active', null, null, null],
+    ['Lyon-7 Jean Macé', '31 rue de Marseille', 'Lyon', '69007', 140, 45.7448, 4.8422, '2023-01-20', 'active', null, null, null],
+    ['Vénissieux Centre', '5 place Léon Sublet', 'Vénissieux', '69200', 200, 45.6975, 4.8869, '2020-11-05', 'active', '+33 6 34 56 78 90', '52345678901234', '58765432109876'],
+    ['Bron Terraillon', '20 rue Guynemer', 'Bron', '69500', 120, 45.7333, 4.9106, '2024-02-28', 'paused', null, null, null],
   ] as const
-).map(([name, address, city, postalCode, surfaceM2, lat, lng, openedAt, status, smsNumber], i) => ({
+).map(([name, address, city, postalCode, surfaceM2, lat, lng, openedAt, status, smsNumber, pdl, pce], i) => ({
   id: u(`2${i}`),
   tenantId: u('1'),
   networkId: u('3'),
@@ -90,6 +90,8 @@ export const sites: Site[] = (
   lng,
   surfaceM2,
   smsNumber,
+  pdl,
+  pce,
   timezone: 'Europe/Paris',
   status: status as 'active' | 'paused' | 'closed',
   openedAt: `${openedAt}T09:00:00.000Z`,

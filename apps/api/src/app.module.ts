@@ -15,6 +15,9 @@ import { ActionsController } from './modules/actions.controller';
 import { StubsController } from './modules/stubs.controller';
 import { SupportController, ConsoleController } from './modules/console.controller';
 import { ConsoleService } from './modules/console.service';
+import { UsersController } from './modules/users.controller';
+import { UsersService } from './modules/users.service';
+import { CognitoAdminService } from './modules/cognito-admin.service';
 import { LeadsController } from './modules/leads.controller';
 import { ConnectorsController } from './modules/connectors.controller';
 import { MailerService } from './modules/mailer.service';
@@ -44,12 +47,15 @@ import { GrdfService } from './modules/grdf.service';
     ConsoleController,
     LeadsController,
     ConnectorsController,
+    UsersController,
   ],
   providers: [
     LlmService,
     ReadService,
     AuditService,
     ConsoleService,
+    UsersService,
+    CognitoAdminService,
     MailerService,
     ConnectorStore,
     SecretStore,

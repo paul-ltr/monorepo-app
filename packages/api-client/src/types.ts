@@ -26,6 +26,13 @@ import type {
   NotificationList,
   Site,
   UpdateSiteSmsInput,
+  CreateSiteInput,
+  UpdateSiteInput,
+  SiteContact,
+  SiteContactInput,
+  AppUser,
+  InviteUserInput,
+  UpdateUserRolesInput,
   PermissionKey,
   SupportTicket,
   CreateSupportTicketInput,
@@ -112,6 +119,22 @@ export interface PilotageApi {
   getSites(): Promise<Site[]>;
   /** Set/clear a site's SMS alert recipient (M12:sites:manage). */
   updateSiteSms(input: UpdateSiteSmsInput): Promise<Site>;
+  /** Create a new site (M12:sites:manage). */
+  createSite(input: CreateSiteInput): Promise<Site>;
+  /** Auto-save partial edits to a site (M12:sites:manage). */
+  updateSite(input: UpdateSiteInput): Promise<Site>;
+  /** Soft-delete a site (M12:sites:manage). */
+  deleteSite(id: string): Promise<{ ok: true }>;
+  /** Email/phone contact directory for a site. */
+  getSiteContacts(siteId: string): Promise<SiteContact[]>;
+  addSiteContact(input: SiteContactInput): Promise<SiteContact>;
+  removeSiteContact(siteId: string, contactId: string): Promise<{ ok: true }>;
+
+  // Tenant user management (M12:users:manage) — super admins & network admins.
+  getUsers(): Promise<AppUser[]>;
+  inviteUser(input: InviteUserInput): Promise<AppUser>;
+  updateUserRoles(input: UpdateUserRolesInput): Promise<AppUser>;
+  disableUser(id: string): Promise<AppUser>;
 
   // Support widget — open to any authenticated user.
   createSupportTicket(input: CreateSupportTicketInput): Promise<SupportTicket>;
