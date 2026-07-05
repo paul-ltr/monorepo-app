@@ -19,6 +19,7 @@ import {
   type ConnectedMeter,
   type ConnectorHistory,
   type EnergyProvider,
+  type BridgeAccount,
   applyConnectorHistories,
   buildDailyHistory,
   buildStateDistribution,
@@ -55,6 +56,18 @@ export function createMockClient(): PilotageApi {
 
   // Simulated Pennylane connection state (no live OAuth in mock mode).
   let pennylane = { connected: false, company: null as string | null, expiresAt: null as string | null };
+
+  // Simulated Bridge open-banking state (no live aggregation in mock mode).
+  const bridgeAccounts: BridgeAccount[] = [
+    { id: 'sim-40218', name: 'Compte courant pro', bank: 'BNP Paribas', balance: 14820, currency: 'EUR' },
+    { id: 'sim-77301', name: 'Livret pro', bank: 'BNP Paribas', balance: 38650, currency: 'EUR' },
+  ];
+  let bridge = {
+    connected: false,
+    bank: null as string | null,
+    accounts: [] as BridgeAccount[],
+    expiresAt: null as string | null,
+  };
 
   // Transient consent state for the simulated Enedis flow (state → prm + site).
   const enedisPending = new Map<string, { prm: string | null; siteId: string }>();
@@ -346,6 +359,36 @@ export function createMockClient(): PilotageApi {
     pennylaneDisconnect: () => {
       pennylane = { connected: false, company: null, expiresAt: null };
       return delay({ connected: false, company: null, simulated: true, expiresAt: null });
+    },
+
+    bridgeStatus: () =>
+      delay({
+        connected: bridge.connected,
+        bank: bridge.bank,
+        accounts: bridge.accounts,
+        simulated: true,
+        expiresAt: bridge.expiresAt,
+      }),
+    bridgeAuthorize: () => {
+      const state = `bridge-mock-${Math.random().toString(36).slice(2, 10)}`;
+      // No live Bridge in mock mode → the UI drives the simulated consent.
+      return delay({ connectUrl: `#bridge-consent/${state}`, state, simulated: true });
+    },
+    bridgeComplete: () => {
+      const expiresAt = new Date(Date.now() + 90 * 86400 * 1000).toISOString();
+      bridge = { connected: true, bank: bridgeAccounts[0]?.bank ?? null, accounts: bridgeAccounts, expiresAt };
+      return delay({
+        status: 'connected' as const,
+        bank: bridge.bank,
+        accounts: bridge.accounts,
+        message: `Banque connectée — ${bridge.accounts.length} compte(s) agrégé(s).`,
+        simulated: true,
+        expiresAt,
+      });
+    },
+    bridgeDisconnect: () => {
+      bridge = { connected: false, bank: null, accounts: [], expiresAt: null };
+      return delay({ connected: false, bank: null, accounts: [], simulated: true, expiresAt: null });
     },
   };
 }

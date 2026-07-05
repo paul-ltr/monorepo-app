@@ -50,6 +50,10 @@ import type {
   PennylaneAuthorizeResult,
   PennylaneCompleteInput,
   PennylaneCompleteResult,
+  BridgeStatus,
+  BridgeAuthorizeResult,
+  BridgeCompleteInput,
+  BridgeCompleteResult,
 } from '@pilotage/shared';
 
 export interface MachineStatusList {
@@ -124,4 +128,10 @@ export interface PilotageApi {
   pennylaneAuthorize(): Promise<PennylaneAuthorizeResult>;
   pennylaneComplete(input: PennylaneCompleteInput): Promise<PennylaneCompleteResult>;
   pennylaneDisconnect(): Promise<PennylaneStatus>;
+
+  // Open-banking connector (M6) — Bridge by Bankin' (agrégation bancaire DSP2).
+  bridgeStatus(): Promise<BridgeStatus>;
+  bridgeAuthorize(): Promise<BridgeAuthorizeResult>;
+  bridgeComplete(input: BridgeCompleteInput): Promise<BridgeCompleteResult>;
+  bridgeDisconnect(): Promise<BridgeStatus>;
 }

@@ -96,5 +96,9 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     pennylaneAuthorize: () => post('/connectors/pennylane/authorize'),
     pennylaneComplete: (input) => post('/connectors/pennylane/complete', input),
     pennylaneDisconnect: () => post('/connectors/pennylane/disconnect'),
+    bridgeStatus: () => get('/connectors/bridge/status'),
+    bridgeAuthorize: () => post('/connectors/bridge/authorize'),
+    bridgeComplete: (input) => post('/connectors/bridge/complete', input),
+    bridgeDisconnect: () => post('/connectors/bridge/disconnect'),
   };
 }

@@ -11,6 +11,7 @@ import {
   type GrdfHistoryInput,
   type GrdfTestInput,
   type PennylaneCompleteInput,
+  type BridgeCompleteInput,
   type RequestContext,
   enedisAuthorizeInput,
   enedisCompleteInput,
@@ -18,6 +19,7 @@ import {
   grdfHistoryInput,
   grdfTestInput,
   pennylaneCompleteInput,
+  bridgeCompleteInput,
 } from '@pilotage/shared';
 import { ScopedDb } from '@/db/db.module';
 import { RequirePermission, Ctx } from '@/auth/rbac';
@@ -28,6 +30,7 @@ import { ConnectorStore } from './connector-store.service';
 import { EnedisService } from './enedis.service';
 import { GrdfService } from './grdf.service';
 import { PennylaneService } from './pennylane.service';
+import { BridgeService } from './bridge.service';
 
 /**
  * M5/M12 — energy connector onboarding for Enedis (electricity, consent-redirect
@@ -49,6 +52,7 @@ export class ConnectorsController {
     private readonly enedis: EnedisService,
     private readonly grdf: GrdfService,
     private readonly pennylane: PennylaneService,
+    private readonly bridge: BridgeService,
   ) {}
 
   // ── Enedis ────────────────────────────────────────────────────────────────
@@ -165,6 +169,44 @@ export class ConnectorsController {
   @RequirePermission('M12:connectors:manage')
   pennylaneDisconnect(@Ctx() ctx: RequestContext) {
     return this.pennylane.disconnect(ctx.tenantId);
+  }
+
+  // ── Bridge (open banking, agrégation bancaire DSP2) ────────────────────────
+
+  @Get('bridge/status')
+  @RequirePermission('M12:connectors:manage')
+  bridgeStatus(@Ctx() ctx: RequestContext) {
+    return this.bridge.status(ctx.tenantId);
+  }
+
+  @Post('bridge/authorize')
+  @RequirePermission('M12:connectors:manage')
+  bridgeAuthorize(@Ctx() ctx: RequestContext) {
+    return this.bridge.authorize(ctx.tenantId);
+  }
+
+  /** PUBLIC — Bridge redirects the customer here after the hosted consent. */
+  @Get('bridge/callback')
+  async bridgeCallback(@Query('state') state: string, @Res() res: Response) {
+    const { ok } = await this.bridge.completeFromCallback(state ?? '');
+    const url = new URL('/finances', this.env.WEB_PUBLIC_URL);
+    url.searchParams.set('bridge', ok ? 'ok' : 'error');
+    res.redirect(url.toString());
+  }
+
+  @Post('bridge/complete')
+  @RequirePermission('M12:connectors:manage')
+  bridgeComplete(
+    @Body(new ZodPipe(bridgeCompleteInput)) body: BridgeCompleteInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.bridge.complete(ctx.tenantId, body.state);
+  }
+
+  @Post('bridge/disconnect')
+  @RequirePermission('M12:connectors:manage')
+  bridgeDisconnect(@Ctx() ctx: RequestContext) {
+    return this.bridge.disconnect(ctx.tenantId);
   }
 
   // ── Persistence ───────────────────────────────────────────────────────────

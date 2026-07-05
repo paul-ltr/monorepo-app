@@ -56,6 +56,13 @@ const schema = z.object({
   PENNYLANE_CLIENT_ID: z.string().optional(),
   PENNYLANE_CLIENT_SECRET: z.string().optional(),
   PENNYLANE_SCOPE: z.string().optional(),
+
+  // Bridge by Bankin' (open banking / agrégation bancaire DSP2, M6). Unset in
+  // dev → the connector runs in simulation mode (self-issued consent, synthetic
+  // aggregated accounts, no live Bridge call).
+  BRIDGE_CLIENT_ID: z.string().optional(),
+  BRIDGE_CLIENT_SECRET: z.string().optional(),
+  BRIDGE_BASE_URL: z.string().default('https://api.bridgeapi.io'),
 });
 
 export type Env = z.infer<typeof schema>;

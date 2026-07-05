@@ -21,6 +21,7 @@ import { MailerService } from './modules/mailer.service';
 import { ConnectorStore } from './modules/connector-store.service';
 import { EnedisService } from './modules/enedis.service';
 import { PennylaneService } from './modules/pennylane.service';
+import { BridgeService } from './modules/bridge.service';
 import { GrdfService } from './modules/grdf.service';
 
 /**
@@ -52,6 +53,7 @@ import { GrdfService } from './modules/grdf.service';
     EnedisService,
     GrdfService,
     PennylaneService,
+    BridgeService,
     { provide: APP_FILTER, useClass: ProblemFilter },
     { provide: APP_GUARD, useClass: FeatureModuleGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
@@ -61,7 +63,13 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(AuthMiddleware)
-      .exclude('health', 'public/leads', 'connectors/enedis/callback', 'connectors/pennylane/callback')
+      .exclude(
+        'health',
+        'public/leads',
+        'connectors/enedis/callback',
+        'connectors/pennylane/callback',
+        'connectors/bridge/callback',
+      )
       .forRoutes('*');
   }
 }

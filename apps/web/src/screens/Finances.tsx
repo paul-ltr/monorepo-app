@@ -106,6 +106,7 @@ export function Finances() {
                 </Card>
 
                 <ConnectorsCard />
+                <BankConnectorCard />
               </div>
             </div>
           </>
@@ -209,6 +210,108 @@ function ConnectorsCard() {
           Bientôt disponible
         </span>
       </div>
+    </SectionCard>
+  );
+}
+
+/**
+ * Open-banking connector: Bridge by Bankin' (agrégation bancaire DSP2). One
+ * click → hosted Bridge Connect (pick your bank, strong authentication) → back.
+ * Once connected, the aggregated accounts + balances let us reconcile real bank
+ * inflows against POS revenue and the Pennylane journals.
+ */
+function BankConnectorCard() {
+  const api = useApi();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const status = useQuery({ queryKey: ['bridge-status'], queryFn: () => api.bridgeStatus() });
+
+  const connect = useMutation({
+    mutationFn: async () => {
+      const res = await api.bridgeAuthorize();
+      if (res.simulated) {
+        // No live client → complete the simulated consent inline.
+        return api.bridgeComplete({ state: res.state });
+      }
+      // Live consent → hand off to Bridge; the backend callback returns to /finances.
+      window.location.href = res.connectUrl;
+      return null;
+    },
+    onSuccess: (r) => {
+      if (r) {
+        qc.invalidateQueries({ queryKey: ['bridge-status'] });
+        toast(r.message);
+      }
+    },
+  });
+
+  const disconnect = useMutation({
+    mutationFn: () => api.bridgeDisconnect(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bridge-status'] });
+      toast('Banque déconnectée.');
+    },
+  });
+
+  // Return path from the live consent redirect (?bridge=ok|error).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get('bridge');
+    if (!r) return;
+    if (r === 'ok') {
+      qc.invalidateQueries({ queryKey: ['bridge-status'] });
+      toast('Banque connectée.');
+    } else {
+      toast('Échec de la connexion à la banque.', 'warn');
+    }
+    params.delete('bridge');
+    const qs = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+  }, [qc, toast]);
+
+  const s = status.data;
+  const connected = s?.connected ?? false;
+
+  return (
+    <SectionCard title="Compte bancaire">
+      <div className="flex items-center gap-[11px] border-b border-border px-[17px] py-3">
+        <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-primary-soft text-[11px] font-bold text-primary">
+          <Icon name="download" size={15} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[12.5px] font-semibold">
+            Open banking · Bridge
+            {s?.simulated && <Pill tone="neutral">bac à sable</Pill>}
+          </div>
+          <div className="text-[11px] text-fg-subtle">
+            {connected
+              ? `Connecté${s?.bank ? ` · ${s.bank}` : ''}`
+              : 'Non connecté · agrégation DSP2'}
+          </div>
+        </div>
+        {connected ? (
+          <Button variant="secondary" size="sm" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+            Déconnecter
+          </Button>
+        ) : (
+          <Button variant="primary" size="sm" onClick={() => connect.mutate()} disabled={connect.isPending}>
+            {connect.isPending ? 'Connexion…' : 'Connecter ma banque'}
+          </Button>
+        )}
+      </div>
+
+      {connected &&
+        (s?.accounts ?? []).map((a) => (
+          <div key={a.id} className="flex items-center gap-[11px] px-[17px] py-2.5 last:pb-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12px] font-semibold">{a.name}</div>
+              <div className="text-[11px] text-fg-subtle">{a.bank ?? '—'}</div>
+            </div>
+            <div className="text-[12.5px] font-bold tabular-nums">
+              {a.balance.toLocaleString('fr-FR', { style: 'currency', currency: a.currency, maximumFractionDigits: 0 })}
+            </div>
+          </div>
+        ))}
     </SectionCard>
   );
 }

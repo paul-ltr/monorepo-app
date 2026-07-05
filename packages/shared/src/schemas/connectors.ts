@@ -154,3 +154,54 @@ export const pennylaneCompleteResult = z.object({
   expiresAt: z.string().nullable(),
 });
 export type PennylaneCompleteResult = z.infer<typeof pennylaneCompleteResult>;
+
+// ───────────────────── Bridge (open banking, agrégation DSP2) ───────────────
+
+/** One aggregated bank account summary, shown on the "Compte bancaire" card. */
+export const bridgeAccount = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** Bank / provider name, when known (e.g. "BNP Paribas"). */
+  bank: z.string().nullable(),
+  /** Current balance in euros (signed). */
+  balance: z.number(),
+  currency: z.string(), // 'EUR'
+});
+export type BridgeAccount = z.infer<typeof bridgeAccount>;
+
+/** Current Bridge connection state for the Finances screen. */
+export const bridgeStatus = z.object({
+  connected: z.boolean(),
+  /** Connected bank name (first item), when known. */
+  bank: z.string().nullable(),
+  /** Aggregated accounts pulled after consent. */
+  accounts: z.array(bridgeAccount),
+  /** True when no Bridge client is configured and the flow is simulated. */
+  simulated: z.boolean(),
+  /** Consent expiry (ISO) — DSP2 consent is time-boxed (~90 days). */
+  expiresAt: z.string().nullable(),
+});
+export type BridgeStatus = z.infer<typeof bridgeStatus>;
+
+/** Step 1 — create the hosted Bridge Connect session and register the state. */
+export const bridgeAuthorizeResult = z.object({
+  /** Hosted Bridge Connect URL to redirect the customer to. */
+  connectUrl: z.string(),
+  state: z.string(),
+  simulated: z.boolean(),
+});
+export type BridgeAuthorizeResult = z.infer<typeof bridgeAuthorizeResult>;
+
+/** Step 2 — after the consent redirect returns, pull the aggregated accounts. */
+export const bridgeCompleteInput = z.object({ state: z.string().min(1) });
+export type BridgeCompleteInput = z.infer<typeof bridgeCompleteInput>;
+
+export const bridgeCompleteResult = z.object({
+  status: z.enum(['connected', 'error']),
+  bank: z.string().nullable(),
+  accounts: z.array(bridgeAccount),
+  message: z.string(),
+  simulated: z.boolean(),
+  expiresAt: z.string().nullable(),
+});
+export type BridgeCompleteResult = z.infer<typeof bridgeCompleteResult>;

@@ -25,3 +25,4 @@ export * from './schemas/connectors';
 export * from './connectors-sim';
 export * from './supervision-sim';
 export * from './pennylane';
+export * from './bridge';
