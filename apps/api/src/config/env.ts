@@ -60,6 +60,28 @@ const schema = z.object({
   PENNYLANE_CLIENT_ID: z.string().optional(),
   PENNYLANE_CLIENT_SECRET: z.string().optional(),
   PENNYLANE_SCOPE: z.string().optional(),
+
+  // Electrolux OneApp / OCP (machine brand). Off by default → the connector
+  // runs in simulation mode (demo appliances, no live login). Set true to log
+  // real group accounts in. The API key / client secret default to the public
+  // mobile-app constants per brand and can be overridden here if they rotate.
+  ELECTROLUX_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+  ELECTROLUX_OCP_BASE: z.string().default('https://api.ocp.electrolux.one'),
+  ELECTROLUX_API_KEY: z.string().optional(),
+  ELECTROLUX_CLIENT_SECRET: z.string().optional(),
+
+  // Miele 3rd Party API (machine brand, OAuth 2.0 authorization-code). Unset in
+  // dev → the connector runs in simulation mode (self-issued consent, demo
+  // appliances). The redirect URI ${API_PUBLIC_URL}/connectors/miele/callback
+  // must be whitelisted in the Miele developer application.
+  MIELE_CLIENT_ID: z.string().optional(),
+  MIELE_CLIENT_SECRET: z.string().optional(),
+  MIELE_API_BASE: z.string().default('https://api.mcs3.miele.com'),
+  MIELE_AUTHORIZE_URL: z.string().default('https://api.mcs3.miele.com/thirdparty/login'),
+  MIELE_TOKEN_URL: z.string().default('https://api.mcs3.miele.com/thirdparty/token'),
 });
 
 export type Env = z.infer<typeof schema>;

@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import type { ConnectorHistory, ConnectorStatus, EnedisMeterKind, Site } from '@pilotage/shared';
+import type {
+  ConnectorHistory,
+  ConnectorStatus,
+  ElectroluxBrandKind,
+  EnedisMeterKind,
+  Site,
+} from '@pilotage/shared';
 import { useApi } from '@/lib/api';
 import { useScope } from '@/lib/scope';
 import { useAppParams, emptySiteParams, type SiteParams } from '@/lib/params';
@@ -108,6 +114,8 @@ export function Settings() {
             <BrevoConfig />
             <EnedisConfig />
             <GrdfConfig />
+            <ElectroluxConfig />
+            <MieleConfig />
             <SitesSmsConfig />
 
             <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[1.5fr_1fr]">
@@ -842,6 +850,476 @@ function SiteParamsSection() {
             Adresse recherchée via l’API Adresse (data.gouv.fr). Le PDL est confirmé au consentement Enedis ci-dessous.
           </span>
         </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+/**
+ * M1/M12 — Electrolux OneApp/OCP connector. Log an Electrolux (or AEG) group
+ * account in with email + password, list its appliances, then associate each one
+ * with a shop (site) — which materialises a machine in supervision. Several
+ * accounts can be connected. Runs against the mock client offline (demo
+ * appliances) and against the NestJS backend (real login) when wired.
+ */
+function ElectroluxConfig() {
+  const api = useApi();
+  const { sites } = useScope();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const statusQ = useQuery({ queryKey: ['electrolux'], queryFn: () => api.electroluxStatus() });
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [country, setCountry] = useState('FR');
+  const [brand, setBrand] = useState<ElectroluxBrandKind>('electrolux');
+  const [label, setLabel] = useState('');
+  const [showForm, setShowForm] = useState(false);
+
+  const accounts = statusQ.data?.accounts ?? [];
+  const appliances = statusQ.data?.appliances ?? [];
+  const hasAccounts = accounts.length > 0;
+
+  const connectM = useMutation({
+    mutationFn: () => api.electroluxConnect({ email, password, countryCode: country, brand, label: label || undefined }),
+    onSuccess: (r) => {
+      if (r.status === 'connected') {
+        toast(r.message, 'ok');
+        setEmail('');
+        setPassword('');
+        setLabel('');
+        setShowForm(false);
+        qc.invalidateQueries({ queryKey: ['electrolux'] });
+      } else {
+        toast(r.message, 'danger');
+      }
+    },
+    onError: () => toast('Échec de la connexion Electrolux.', 'danger'),
+  });
+
+  const associateM = useMutation({
+    mutationFn: (v: { accountId: string; applianceId: string; siteId: string }) => api.electroluxAssociate(v),
+    onSuccess: () => {
+      toast('Appareil associé à la boutique.', 'ok');
+      qc.invalidateQueries({ queryKey: ['electrolux'] });
+    },
+    onError: () => toast('Échec de l’association.', 'danger'),
+  });
+
+  const disconnectM = useMutation({
+    mutationFn: (accountId: string) => api.electroluxDisconnect({ accountId }),
+    onSuccess: () => {
+      toast('Compte Electrolux déconnecté.', 'ok');
+      qc.invalidateQueries({ queryKey: ['electrolux'] });
+    },
+  });
+
+  const showConnectForm = showForm || !hasAccounts;
+
+  return (
+    <SectionCard
+      className="mb-[18px]"
+      title="Electrolux · connexion du compte groupe"
+      subtitle="Connectez votre compte Electrolux (OneApp), récupérez vos appareils, puis associez-les à une boutique."
+    >
+      <div className="flex flex-col gap-4 p-[18px]">
+        <div className="flex items-center gap-2 text-primary">
+          <Icon name="bolt" size={16} strokeWidth={2} />
+          <Steps
+            current={hasAccounts ? (appliances.some((a) => a.siteId) ? 2 : 1) : 0}
+            labels={['Connexion du compte', 'Appareils récupérés', 'Associés aux boutiques']}
+          />
+        </div>
+
+        {/* Connect form (one click after entering credentials) */}
+        {showConnectForm && (
+          <div className="flex flex-col gap-3 rounded-[10px] border border-border bg-surface-2 p-3.5">
+            <div className="flex flex-wrap gap-2.5">
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-[11px] font-semibold text-fg-subtle">E-mail du compte</span>
+                <input
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="vous@exemple.com"
+                  className={fieldCls('min-w-[200px]')}
+                />
+              </label>
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-[11px] font-semibold text-fg-subtle">Mot de passe</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={fieldCls('min-w-[160px]')}
+                />
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-fg-subtle">Marque</span>
+                <select value={brand} onChange={(e) => setBrand(e.target.value as ElectroluxBrandKind)} className={fieldCls('min-w-[130px]')}>
+                  <option value="electrolux">Electrolux</option>
+                  <option value="aeg">AEG</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-fg-subtle">Pays</span>
+                <input
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
+                  className={fieldCls('w-[80px] min-w-0')}
+                />
+              </label>
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-[11px] font-semibold text-fg-subtle">Libellé (optionnel)</span>
+                <input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="Ex. Compte enseigne"
+                  className={fieldCls('min-w-[160px]')}
+                />
+              </label>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Button
+                variant="primary"
+                icon="bolt"
+                disabled={connectM.isPending}
+                onClick={() => connectM.mutate()}
+              >
+                {connectM.isPending ? 'Connexion…' : 'Connecter le compte'}
+              </Button>
+              {hasAccounts && (
+                <Button variant="ghost" onClick={() => setShowForm(false)}>
+                  Annuler
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-fg-subtle">
+              La connexion utilise l’identifiant du compte Electrolux (OneApp). Le jeton est chiffré côté serveur (AWS
+              Secrets Manager) pour permettre la synchronisation des appareils.
+            </p>
+          </div>
+        )}
+
+        {/* Connected accounts + their appliances */}
+        {accounts.map((acc) => {
+          const items = appliances.filter((a) => a.accountId === acc.id);
+          return (
+            <div key={acc.id} className="rounded-[10px] border border-border bg-surface-2 p-3.5">
+              <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-[13px] font-semibold">
+                    <Icon name="check" size={14} strokeWidth={2.4} className="text-ok" />
+                    {acc.label}
+                  </span>
+                  <span className="rounded-[6px] bg-surface-3 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fg-subtle">
+                    {acc.brand} · {acc.countryCode}
+                  </span>
+                  {acc.simulated && (
+                    <span className="rounded-[6px] bg-surface-3 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fg-subtle">
+                      Simulation
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => disconnectM.mutate(acc.id)}
+                  className="text-[11.5px] font-semibold text-danger hover:underline"
+                >
+                  Déconnecter
+                </button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {items.map((a) => (
+                  <ApplianceRow
+                    key={a.applianceId}
+                    appliance={a}
+                    sites={sites}
+                    pending={associateM.isPending}
+                    onAssociate={(siteId) =>
+                      associateM.mutate({ accountId: acc.id, applianceId: a.applianceId, siteId })
+                    }
+                  />
+                ))}
+                {items.length === 0 && (
+                  <div className="py-1 text-[12px] text-fg-subtle">Aucun appareil sur ce compte.</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {hasAccounts && !showForm && (
+          <div>
+            <Button variant="subtle" icon="plus" onClick={() => setShowForm(true)}>
+              Connecter un autre compte
+            </Button>
+          </div>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
+/** Shape shared by Electrolux/Miele appliances the row needs to render + link. */
+type LinkableAppliance = {
+  applianceId: string;
+  name: string;
+  type: string;
+  serial: string | null;
+  connected: boolean;
+  siteId: string | null;
+};
+
+/** One appliance row with a shop (site) selector to associate it. */
+function ApplianceRow({
+  appliance,
+  sites,
+  pending,
+  onAssociate,
+}: {
+  appliance: LinkableAppliance;
+  sites: Site[];
+  pending: boolean;
+  onAssociate: (siteId: string) => void;
+}) {
+  const [siteId, setSiteId] = useState(appliance.siteId ?? '');
+  const associated = !!appliance.siteId;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-border bg-surface px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[12.5px] font-semibold">{appliance.name}</div>
+        <div className="truncate text-[11px] text-fg-subtle">
+          {appliance.type}
+          {appliance.serial ? ` · ${appliance.serial}` : ''}
+          <span className={cn('ml-1.5', appliance.connected ? 'text-ok' : 'text-fg-subtle')}>
+            {appliance.connected ? '● en ligne' : '○ hors ligne'}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <select
+          value={siteId}
+          onChange={(e) => setSiteId(e.target.value)}
+          className={fieldCls('h-[32px] min-w-[150px] text-[12px]')}
+        >
+          <option value="">Choisir une boutique…</option>
+          {sites.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        <Button
+          size="sm"
+          variant={associated ? 'secondary' : 'primary'}
+          disabled={!siteId || pending || siteId === appliance.siteId}
+          onClick={() => onAssociate(siteId)}
+        >
+          {associated ? 'Modifier' : 'Associer'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const MIELE_VG_OPTIONS = ['fr-FR', 'fr-BE', 'de-DE', 'de-AT', 'nl-NL', 'en-GB', 'es-ES', 'it-IT'];
+
+/**
+ * M1/M12 — Miele 3rd Party API connector. Official OAuth 2.0 authorization-code
+ * flow: one click opens Miele's hosted login, the callback returns to /settings,
+ * we drain the account's appliances and associate each with a shop (creating a
+ * machine). Runs against the mock client offline (in-app simulated consent) and
+ * against the NestJS backend (real Miele consent redirect) when wired.
+ */
+function MieleConfig() {
+  const api = useApi();
+  const { sites } = useScope();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const statusQ = useQuery({ queryKey: ['miele'], queryFn: () => api.mieleStatus() });
+
+  const [vg, setVg] = useState('fr-FR');
+  const [label, setLabel] = useState('');
+  const [showForm, setShowForm] = useState(false);
+
+  const accounts = statusQ.data?.accounts ?? [];
+  const appliances = statusQ.data?.appliances ?? [];
+  const hasAccounts = accounts.length > 0;
+
+  const completeM = useMutation({
+    mutationFn: (state: string) => api.mieleComplete({ state }),
+    onSuccess: (r) => {
+      if (r.status === 'connected') {
+        toast(r.message, 'ok');
+        setShowForm(false);
+        setLabel('');
+        qc.invalidateQueries({ queryKey: ['miele'] });
+      } else {
+        toast(r.message, 'danger');
+      }
+    },
+  });
+
+  const authorizeM = useMutation({
+    mutationFn: () => api.mieleAuthorize({ vg, label: label || undefined }),
+    onSuccess: (r) => {
+      if (r.authorizeUrl.startsWith('http')) {
+        // Real Miele consent: full redirect; we resume via ?miele=…&state=… below.
+        window.location.href = r.authorizeUrl;
+      } else {
+        // Mock: drive the simulated consent in-app.
+        completeM.mutate(r.state);
+      }
+    },
+  });
+
+  const associateM = useMutation({
+    mutationFn: (v: { accountId: string; applianceId: string; siteId: string }) => api.mieleAssociate(v),
+    onSuccess: () => {
+      toast('Appareil associé à la boutique.', 'ok');
+      qc.invalidateQueries({ queryKey: ['miele'] });
+    },
+    onError: () => toast('Échec de l’association.', 'danger'),
+  });
+
+  const disconnectM = useMutation({
+    mutationFn: (accountId: string) => api.mieleDisconnect({ accountId }),
+    onSuccess: () => {
+      toast('Compte Miele déconnecté.', 'ok');
+      qc.invalidateQueries({ queryKey: ['miele'] });
+    },
+  });
+
+  // Resume the flow when Miele redirects the user back to /settings.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('miele');
+    const state = params.get('state');
+    if (!status) return;
+    if (status === 'ok' && state) completeM.mutate(state);
+    else if (status === 'error') toast('Le consentement Miele a échoué ou a été refusé.', 'danger');
+    params.delete('miele');
+    params.delete('state');
+    const qs = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+  }, []);
+
+  const showConnectForm = showForm || !hasAccounts;
+  const pending = authorizeM.isPending || completeM.isPending;
+
+  return (
+    <SectionCard
+      className="mb-[18px]"
+      title="Miele · connexion du compte"
+      subtitle="Connectez votre compte Miele@home (OAuth), récupérez vos appareils, puis associez-les à une boutique."
+    >
+      <div className="flex flex-col gap-4 p-[18px]">
+        <div className="flex items-center gap-2 text-primary">
+          <Icon name="bolt" size={16} strokeWidth={2} />
+          <Steps
+            current={hasAccounts ? (appliances.some((a) => a.siteId) ? 2 : 1) : 0}
+            labels={['Connexion du compte', 'Appareils récupérés', 'Associés aux boutiques']}
+          />
+        </div>
+
+        {showConnectForm && (
+          <div className="flex flex-col gap-3 rounded-[10px] border border-border bg-surface-2 p-3.5">
+            <div className="flex flex-wrap items-end gap-2.5">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-fg-subtle">Région du compte (vg)</span>
+                <select value={vg} onChange={(e) => setVg(e.target.value)} className={fieldCls('min-w-[110px]')}>
+                  {MIELE_VG_OPTIONS.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-[11px] font-semibold text-fg-subtle">Libellé (optionnel)</span>
+                <input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="Ex. Compte enseigne"
+                  className={fieldCls('min-w-[160px]')}
+                />
+              </label>
+              <Button variant="primary" icon="bolt" disabled={pending} onClick={() => authorizeM.mutate()}>
+                {pending ? 'Connexion…' : 'Connecter Miele'}
+              </Button>
+              {hasAccounts && (
+                <Button variant="ghost" onClick={() => setShowForm(false)}>
+                  Annuler
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-fg-subtle">
+              Un clic ouvre la page de connexion Miele@home. Après consentement, vos appareils sont récupérés
+              automatiquement. Le jeton est chiffré côté serveur (AWS Secrets Manager).
+            </p>
+          </div>
+        )}
+
+        {accounts.map((acc) => {
+          const items = appliances.filter((a) => a.accountId === acc.id);
+          return (
+            <div key={acc.id} className="rounded-[10px] border border-border bg-surface-2 p-3.5">
+              <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-[13px] font-semibold">
+                    <Icon name="check" size={14} strokeWidth={2.4} className="text-ok" />
+                    {acc.label}
+                  </span>
+                  <span className="rounded-[6px] bg-surface-3 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fg-subtle">
+                    Miele · {acc.vg}
+                  </span>
+                  {acc.simulated && (
+                    <span className="rounded-[6px] bg-surface-3 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fg-subtle">
+                      Simulation
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => disconnectM.mutate(acc.id)}
+                  className="text-[11.5px] font-semibold text-danger hover:underline"
+                >
+                  Déconnecter
+                </button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {items.map((a) => (
+                  <ApplianceRow
+                    key={a.applianceId}
+                    appliance={a}
+                    sites={sites}
+                    pending={associateM.isPending}
+                    onAssociate={(siteId) =>
+                      associateM.mutate({ accountId: acc.id, applianceId: a.applianceId, siteId })
+                    }
+                  />
+                ))}
+                {items.length === 0 && (
+                  <div className="py-1 text-[12px] text-fg-subtle">Aucun appareil sur ce compte.</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {hasAccounts && !showForm && (
+          <div>
+            <Button variant="subtle" icon="plus" onClick={() => setShowForm(true)}>
+              Connecter un autre compte
+            </Button>
+          </div>
+        )}
       </div>
     </SectionCard>
   );

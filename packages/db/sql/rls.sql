@@ -131,9 +131,11 @@ create or replace view core.v_price_effective as
 
 -- Connector routing table exposed as a stable view: the data repo reads this on
 -- every intake to resolve a provider delivery to its owning tenant/site + secret
--- ref (see the data repo's ingestion/routing.py). Owner-owned → bypasses RLS.
+-- ref (see the data repo's ingestion/routing.py). `secret_ref` points at the
+-- Secrets Manager entry holding the actual token (never in the DB). Owner-owned
+-- → bypasses RLS.
 create or replace view core.v_connector_config as
-  select id, tenant_id, site_id, kind, provider, status, secret_ref
+  select id, tenant_id, site_id, kind, provider, status, secret_ref, last_sync_at
   from core.connector_config;
 
 grant usage on schema core to data_rw;

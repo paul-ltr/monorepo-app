@@ -20,6 +20,9 @@ import { LeadsController } from './modules/leads.controller';
 import { ConnectorsController } from './modules/connectors.controller';
 import { MailerService } from './modules/mailer.service';
 import { ConnectorStore } from './modules/connector-store.service';
+import { ElectroluxService } from './modules/electrolux.service';
+import { MieleService } from './modules/miele.service';
+import { SecretStore } from './modules/secret-store.service';
 import { EnedisService } from './modules/enedis.service';
 import { PennylaneService } from './modules/pennylane.service';
 import { GrdfService } from './modules/grdf.service';
@@ -51,6 +54,9 @@ import { GrdfService } from './modules/grdf.service';
     ConsoleService,
     MailerService,
     ConnectorStore,
+    SecretStore,
+    ElectroluxService,
+    MieleService,
     EnedisService,
     GrdfService,
     PennylaneService,
@@ -68,6 +74,7 @@ export class AppModule implements NestModule {
         'public/leads',
         'connectors/enedis/callback',
         'connectors/pennylane/callback',
+        'connectors/miele/callback',
         // VPC-internal endpoints (data repo device-command worker): token-auth,
         // not tenant/Cognito auth. See InternalController.
         'internal/(.*)',
