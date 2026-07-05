@@ -96,5 +96,14 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     pennylaneAuthorize: () => post('/connectors/pennylane/authorize'),
     pennylaneComplete: (input) => post('/connectors/pennylane/complete', input),
     pennylaneDisconnect: () => post('/connectors/pennylane/disconnect'),
+    electroluxStatus: () => get('/connectors/electrolux/status'),
+    electroluxConnect: (input) => post('/connectors/electrolux/connect', input),
+    electroluxAssociate: (input) => post('/connectors/electrolux/associate', input),
+    electroluxDisconnect: (input) => post('/connectors/electrolux/disconnect', input),
+    mieleStatus: () => get('/connectors/miele/status'),
+    mieleAuthorize: (input) => post('/connectors/miele/authorize', input),
+    mieleComplete: (input) => post('/connectors/miele/complete', input),
+    mieleAssociate: (input) => post('/connectors/miele/associate', input),
+    mieleDisconnect: (input) => post('/connectors/miele/disconnect', input),
   };
 }

@@ -5,18 +5,32 @@ import { and, eq } from 'drizzle-orm';
 import { schema } from '@pilotage/db';
 import {
   type ConnectorHistory,
+  type ElectroluxAssociateInput,
+  type ElectroluxConnectInput,
+  type ElectroluxDisconnectInput,
   type EnedisAuthorizeInput,
   type EnedisCompleteInput,
   type EnedisValidateInput,
   type GrdfHistoryInput,
   type GrdfTestInput,
+  type MieleAssociateInput,
+  type MieleAuthorizeInput,
+  type MieleCompleteInput,
+  type MieleDisconnectInput,
   type PennylaneCompleteInput,
   type RequestContext,
+  electroluxAssociateInput,
+  electroluxConnectInput,
+  electroluxDisconnectInput,
   enedisAuthorizeInput,
   enedisCompleteInput,
   enedisValidateInput,
   grdfHistoryInput,
   grdfTestInput,
+  mieleAssociateInput,
+  mieleAuthorizeInput,
+  mieleCompleteInput,
+  mieleDisconnectInput,
   pennylaneCompleteInput,
 } from '@pilotage/shared';
 import { ScopedDb } from '@/db/db.module';
@@ -25,8 +39,10 @@ import { ZodPipe } from '@/common/zod.pipe';
 import { loadEnv } from '@/config/env';
 import { AuditService } from './audit.service';
 import { ConnectorStore } from './connector-store.service';
+import { ElectroluxService } from './electrolux.service';
 import { EnedisService } from './enedis.service';
 import { GrdfService } from './grdf.service';
+import { MieleService } from './miele.service';
 import { PennylaneService } from './pennylane.service';
 
 /**
@@ -49,6 +65,8 @@ export class ConnectorsController {
     private readonly enedis: EnedisService,
     private readonly grdf: GrdfService,
     private readonly pennylane: PennylaneService,
+    private readonly electrolux: ElectroluxService,
+    private readonly miele: MieleService,
   ) {}
 
   // ── Enedis ────────────────────────────────────────────────────────────────
@@ -165,6 +183,99 @@ export class ConnectorsController {
   @RequirePermission('M12:connectors:manage')
   pennylaneDisconnect(@Ctx() ctx: RequestContext) {
     return this.pennylane.disconnect(ctx.tenantId);
+  }
+
+  // ── Electrolux (OneApp/OCP machine brand) ──────────────────────────────────
+
+  @Get('electrolux/status')
+  @RequirePermission('M12:connectors:manage')
+  electroluxStatus(@Ctx() ctx: RequestContext) {
+    return this.electrolux.status(ctx.tenantId);
+  }
+
+  @Post('electrolux/connect')
+  @RequirePermission('M12:connectors:manage')
+  electroluxConnect(
+    @Body(new ZodPipe(electroluxConnectInput)) body: ElectroluxConnectInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.electrolux.connect(ctx.tenantId, body);
+  }
+
+  @Post('electrolux/associate')
+  @RequirePermission('M12:connectors:manage')
+  electroluxAssociate(
+    @Body(new ZodPipe(electroluxAssociateInput)) body: ElectroluxAssociateInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.electrolux.associate(ctx, body);
+  }
+
+  @Post('electrolux/disconnect')
+  @RequirePermission('M12:connectors:manage')
+  electroluxDisconnect(
+    @Body(new ZodPipe(electroluxDisconnectInput)) body: ElectroluxDisconnectInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.electrolux.disconnect(ctx, body.accountId);
+  }
+
+  // ── Miele (3rd Party API machine brand, OAuth 2.0) ──────────────────────────
+
+  @Get('miele/status')
+  @RequirePermission('M12:connectors:manage')
+  mieleStatus(@Ctx() ctx: RequestContext) {
+    return this.miele.status(ctx.tenantId);
+  }
+
+  @Post('miele/authorize')
+  @RequirePermission('M12:connectors:manage')
+  mieleAuthorize(
+    @Body(new ZodPipe(mieleAuthorizeInput)) body: MieleAuthorizeInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.miele.authorize(ctx.tenantId, body);
+  }
+
+  /** PUBLIC — Miele redirects the user here after consent. */
+  @Get('miele/callback')
+  async mieleCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    const { ok } = await this.miele.handleCallback(code ?? '', state ?? '');
+    const url = new URL('/settings', this.env.WEB_PUBLIC_URL);
+    url.searchParams.set('miele', ok ? 'ok' : 'error');
+    if (state) url.searchParams.set('state', state);
+    res.redirect(url.toString());
+  }
+
+  @Post('miele/complete')
+  @RequirePermission('M12:connectors:manage')
+  mieleComplete(
+    @Body(new ZodPipe(mieleCompleteInput)) body: MieleCompleteInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.miele.complete(ctx.tenantId, body.state);
+  }
+
+  @Post('miele/associate')
+  @RequirePermission('M12:connectors:manage')
+  mieleAssociate(
+    @Body(new ZodPipe(mieleAssociateInput)) body: MieleAssociateInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.miele.associate(ctx, body);
+  }
+
+  @Post('miele/disconnect')
+  @RequirePermission('M12:connectors:manage')
+  mieleDisconnect(
+    @Body(new ZodPipe(mieleDisconnectInput)) body: MieleDisconnectInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    return this.miele.disconnect(ctx, body.accountId);
   }
 
   // ── Persistence ───────────────────────────────────────────────────────────

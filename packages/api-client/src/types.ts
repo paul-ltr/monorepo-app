@@ -50,6 +50,18 @@ import type {
   PennylaneAuthorizeResult,
   PennylaneCompleteInput,
   PennylaneCompleteResult,
+  ElectroluxConnectInput,
+  ElectroluxConnectResult,
+  ElectroluxStatus,
+  ElectroluxAssociateInput,
+  ElectroluxDisconnectInput,
+  MieleAuthorizeInput,
+  MieleAuthorizeResult,
+  MieleCompleteInput,
+  MieleCompleteResult,
+  MieleStatus,
+  MieleAssociateInput,
+  MieleDisconnectInput,
 } from '@pilotage/shared';
 
 export interface MachineStatusList {
@@ -124,4 +136,17 @@ export interface PilotageApi {
   pennylaneAuthorize(): Promise<PennylaneAuthorizeResult>;
   pennylaneComplete(input: PennylaneCompleteInput): Promise<PennylaneCompleteResult>;
   pennylaneDisconnect(): Promise<PennylaneStatus>;
+
+  // Machine-brand connector (M1/M12) — Electrolux OneApp/OCP account onboarding.
+  electroluxStatus(): Promise<ElectroluxStatus>;
+  electroluxConnect(input: ElectroluxConnectInput): Promise<ElectroluxConnectResult>;
+  electroluxAssociate(input: ElectroluxAssociateInput): Promise<ElectroluxStatus>;
+  electroluxDisconnect(input: ElectroluxDisconnectInput): Promise<ElectroluxStatus>;
+
+  // Machine-brand connector (M1/M12) — Miele 3rd Party API (OAuth 2.0 redirect).
+  mieleStatus(): Promise<MieleStatus>;
+  mieleAuthorize(input: MieleAuthorizeInput): Promise<MieleAuthorizeResult>;
+  mieleComplete(input: MieleCompleteInput): Promise<MieleCompleteResult>;
+  mieleAssociate(input: MieleAssociateInput): Promise<MieleStatus>;
+  mieleDisconnect(input: MieleDisconnectInput): Promise<MieleStatus>;
 }

@@ -129,8 +129,16 @@ create or replace view core.v_price_effective as
     and (p.valid_from is null or p.valid_from <= now())
     and (p.valid_to is null or p.valid_to >= now());
 
+-- Connector registry (Electrolux/energy/accounting/...). The data repo reads
+-- this to know which provider accounts to pull from; `secret_ref` points at the
+-- Secrets Manager entry holding the actual token (the secret is never in the DB).
+create or replace view core.v_connector_config as
+  select id, tenant_id, site_id, kind, provider, status, secret_ref, last_sync_at
+  from core.connector_config;
+
 grant usage on schema core to data_rw;
-grant select on core.v_tenant, core.v_site, core.v_machine, core.v_price_effective to data_rw;
+grant select on core.v_tenant, core.v_site, core.v_machine, core.v_price_effective,
+                core.v_connector_config to data_rw;
 
 -- ===========================================================================
 -- Cross-tenant views for the LavoPilot back-office console (M12). Owned by the
