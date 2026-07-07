@@ -50,10 +50,12 @@ module "events" {
 }
 
 module "web" {
-  source = "../../modules/web"
-  name   = local.name
-  env    = var.env
-  tags   = local.tags
+  source              = "../../modules/web"
+  name                = local.name
+  env                 = var.env
+  domain_aliases      = [var.web_domain]
+  acm_certificate_arn = aws_acm_certificate_validation.web.certificate_arn
+  tags                = local.tags
 }
 
 module "site" {

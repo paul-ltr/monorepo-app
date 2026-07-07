@@ -20,7 +20,7 @@ variable "compute" {
 }
 variable "lambda_zip" {
   type    = string
-  default = "placeholder.zip" # CI builds & uploads the real bundle
+  default = null # null => generated placeholder bundle (archive_file below); CD ships real code via `aws lambda update-function-code`
 }
 variable "memory_size" {
   type    = number
