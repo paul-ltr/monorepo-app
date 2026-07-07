@@ -42,3 +42,11 @@ variable "budget_alert_emails" {
   type    = list(string)
   default = []
 }
+variable "domain_name" {
+  type    = string
+  default = "lavopilot.com" # the Route 53 hosted zone (delegated from GoDaddy)
+}
+variable "web_domain" {
+  type    = string
+  default = "dev-app.lavopilot.com" # operator console (web module)
+}

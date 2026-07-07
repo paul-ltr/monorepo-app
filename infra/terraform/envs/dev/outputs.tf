@@ -12,6 +12,11 @@ output "env" { value = var.env }
 output "web_bucket" { value = module.web.bucket }
 output "web_distribution_id" { value = module.web.distribution_id }
 output "web_distribution_domain" { value = module.web.distribution_domain }
+output "web_url" { value = "https://${var.web_domain}" }
+
+# Set these 4 nameservers as the custom nameservers for lavopilot.com at GoDaddy.
+output "route53_name_servers" { value = aws_route53_zone.primary.name_servers }
+output "web_acm_certificate_arn" { value = aws_acm_certificate.web.arn }
 output "site_bucket" { value = module.site.bucket }
 output "site_distribution_id" { value = module.site.distribution_id }
 output "site_distribution_domain" { value = module.site.distribution_domain }

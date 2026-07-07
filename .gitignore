@@ -46,3 +46,4 @@ pnpm-debug.log*
 
 # Lambda packaging
 apps/api/lambda.zip
+infra/terraform/modules/api/.placeholder/

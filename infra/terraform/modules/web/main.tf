@@ -35,6 +35,7 @@ resource "aws_cloudfront_distribution" "web" {
   default_root_object = "index.html"
   comment             = "pilotage-${var.env}"
   price_class         = "PriceClass_100" # EU/NA edges only — cost
+  aliases             = var.domain_aliases
 
   origin {
     domain_name              = aws_s3_bucket.web.bucket_regional_domain_name

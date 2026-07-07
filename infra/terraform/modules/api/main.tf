@@ -64,6 +64,19 @@ resource "aws_security_group" "lambda" {
   tags = local.tags
 }
 
+# Placeholder bundle so the first-ever `terraform apply` can create the function
+# before any real code exists. CD ships the real bundle out-of-band via
+# `aws lambda update-function-code`; filename is ignored on update (below).
+data "archive_file" "placeholder" {
+  count       = var.lambda_zip == null ? 1 : 0
+  type        = "zip"
+  output_path = "${path.module}/.placeholder/lambda.zip"
+  source {
+    content  = "exports.handler = async () => ({ statusCode: 200, headers: { \"content-type\": \"application/json\" }, body: JSON.stringify({ status: \"placeholder\" }) });"
+    filename = "lambda.js"
+  }
+}
+
 # --- Lambda ------------------------------------------------------------------
 resource "aws_lambda_function" "api" {
   function_name = "${var.name}-api"
@@ -71,7 +84,7 @@ resource "aws_lambda_function" "api" {
   runtime       = "nodejs20.x"
   architectures = ["arm64"]
   handler       = "lambda.handler"
-  filename      = var.lambda_zip # CI builds & uploads; see RUNBOOK + deploy.yml
+  filename      = var.lambda_zip != null ? var.lambda_zip : data.archive_file.placeholder[0].output_path # CD ships real code; see RUNBOOK + deploy.yml
   memory_size   = var.memory_size
   timeout       = 30
 
