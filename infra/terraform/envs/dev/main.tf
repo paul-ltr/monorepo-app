@@ -81,5 +81,6 @@ module "api" {
   provider_secret_arns = values(module.security.provider_secret_arns)
   sqs_queue_arns       = values(module.events.queue_arns)
   web_acl_arn          = module.security.regional_web_acl_arn
+  attach_web_acl       = true
   tags                 = local.tags
 }
