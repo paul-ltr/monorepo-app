@@ -17,7 +17,10 @@ module "network" {
   name            = local.name
   region          = var.region
   use_managed_nat = var.use_managed_nat
-  tags            = local.tags
+  # t4g.nano was capacity-short in eu-west-3a; use a larger pool in eu-west-3b.
+  nat_instance_type = "t4g.small"
+  nat_subnet_index  = 1
+  tags              = local.tags
 }
 
 module "rds" {
