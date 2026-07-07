@@ -124,8 +124,8 @@ data "aws_ami" "fck_nat" {
 resource "aws_instance" "fck_nat" {
   count                       = var.use_managed_nat ? 0 : 1
   ami                         = data.aws_ami.fck_nat[0].id
-  instance_type               = "t4g.nano"
-  subnet_id                   = aws_subnet.public[0].id
+  instance_type               = var.nat_instance_type
+  subnet_id                   = aws_subnet.public[var.nat_subnet_index].id
   associate_public_ip_address = true
   source_dest_check           = false
   vpc_security_group_ids      = [aws_security_group.fck_nat[0].id]

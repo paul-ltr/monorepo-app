@@ -26,6 +26,18 @@ variable "use_spot_nat" {
   description = "Run the fck-nat instance on Spot. Off by default: one-time Spot for t4g.nano is unreliable and on-demand is ~$3/mo."
 }
 
+variable "nat_instance_type" {
+  type        = string
+  default     = "t4g.nano"
+  description = "fck-nat instance type (arm64). Bump to t4g.small/micro if an AZ is short on nano capacity."
+}
+
+variable "nat_subnet_index" {
+  type        = number
+  default     = 0
+  description = "Which public subnet/AZ hosts fck-nat (0=first AZ, 1=second). Move to dodge per-AZ capacity shortages."
+}
+
 variable "tags" {
   type        = map(string)
   default     = {}
