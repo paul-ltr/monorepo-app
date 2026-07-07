@@ -15,7 +15,7 @@ variable "master_username" {
 }
 variable "engine_version" {
   type    = string
-  default = "16.4"
+  default = "16.9" # 16.4 was retired in eu-west-3; 16.9+ are the available 16.x
 }
 variable "instance_class" {
   type    = string
