@@ -39,7 +39,7 @@ resource "aws_db_subnet_group" "this" {
 
 resource "aws_security_group" "db" {
   name        = "${var.name}-db"
-  description = "RDS Postgres — from app/data compute only"
+  description = "RDS Postgres - from app/data compute only"
   vpc_id      = var.vpc_id
   egress {
     from_port   = 0
@@ -65,8 +65,9 @@ resource "aws_db_parameter_group" "this" {
   name   = "${var.name}-pg16"
   family = "postgres16"
   parameter {
-    name  = "shared_preload_libraries"
-    value = "pg_stat_statements"
+    name         = "shared_preload_libraries"
+    value        = "pg_stat_statements"
+    apply_method = "pending-reboot" # static param — cannot apply immediately
   }
   parameter {
     name  = "log_min_duration_statement"

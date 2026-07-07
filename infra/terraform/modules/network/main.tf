@@ -129,9 +129,14 @@ resource "aws_instance" "fck_nat" {
   associate_public_ip_address = true
   source_dest_check           = false
   vpc_security_group_ids      = [aws_security_group.fck_nat[0].id]
-  instance_market_options {
-    market_type = "spot"
-    spot_options { spot_instance_type = "one-time" }
+  # On-demand by default: one-time Spot for a t4g.nano is flaky (capacity gaps
+  # leave the request unfulfilled) and the on-demand price is trivial (~$3/mo).
+  dynamic "instance_market_options" {
+    for_each = var.use_spot_nat ? [1] : []
+    content {
+      market_type = "spot"
+      spot_options { spot_instance_type = "one-time" }
+    }
   }
   tags = merge(local.tags, { Name = "${var.name}-fck-nat" })
 }

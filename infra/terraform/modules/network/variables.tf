@@ -20,6 +20,12 @@ variable "use_managed_nat" {
   description = "true = managed NAT Gateway (prod); false = fck-nat instance (dev)."
 }
 
+variable "use_spot_nat" {
+  type        = bool
+  default     = false
+  description = "Run the fck-nat instance on Spot. Off by default: one-time Spot for t4g.nano is unreliable and on-demand is ~$3/mo."
+}
+
 variable "tags" {
   type        = map(string)
   default     = {}
