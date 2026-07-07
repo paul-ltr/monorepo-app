@@ -50,6 +50,11 @@ variable "web_acl_arn" {
   type    = string
   default = null
 }
+variable "attach_web_acl" {
+  type    = bool
+  default = false # associate the regional WAF; kept separate from web_acl_arn so
+  # `count` stays statically-known when the ARN is computed in the same apply
+}
 variable "tags" {
   type    = map(string)
   default = {}
