@@ -81,6 +81,8 @@ module "api" {
   provider_secret_arns = values(module.security.provider_secret_arns)
   sqs_queue_arns       = values(module.events.queue_arns)
   web_acl_arn          = module.security.regional_web_acl_arn
-  attach_web_acl       = true
-  tags                 = local.tags
+  # WAFv2 cannot associate with an API Gateway v2 HTTP API (only REST/ALB/
+  # CloudFront), so leave it detached. Protect the API via CloudFront WAF later.
+  attach_web_acl = false
+  tags           = local.tags
 }
