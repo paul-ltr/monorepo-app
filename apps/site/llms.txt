@@ -1,0 +1,34 @@
+# LavoPilot
+
+> LavoPilot is the intelligent ERP for self-service (automatic) laundromats. It unifies real-time machine supervision, payments and revenue reconciliation, energy tracking, predictive maintenance and an AI copilot in a single platform — designed and hosted in France and GDPR-compliant.
+
+LavoPilot is published by LavoPilot SAS (Paris, France). It helps independent owners and multi-site laundromat networks run their whole operation from one dashboard. It connects to existing payment terminals and machine manufacturers rather than requiring proprietary hardware. The interface is bilingual (French and English).
+
+The AI copilot does not just display numbers: it interprets them and recommends prioritized, quantified actions (for example, a suggested price adjustment, an energy anomaly to investigate, or a maintenance task to schedule before a breakdown). Any operating, pricing or maintenance decision remains the customer's responsibility.
+
+## What it does
+
+- **Real-time supervision**: status of every machine, running cycles and live alerts, site by site.
+- **Revenue & payments**: automatic reconciliation of card, contactless, cash and app payments, with discrepancies flagged in real time.
+- **Energy & compliance**: tracking of water, gas and electricity use per cycle, with compliance reports ready to export.
+- **Predictive maintenance**: anticipates failures from machine signals and helps schedule service before the breakdown.
+- **Pricing & yield**: dynamic price optimization by footfall, weather and season to improve utilization.
+- **Customers & loyalty**: loyalty program, mobile app, prepaid cards and targeted campaigns.
+- **Consolidated finance**: revenue, margins and cash per site and consolidated, exportable to accounting.
+- **Network & benchmark**: compares site performance and highlights gaps to fix.
+- **AI copilot**: continuous analysis and concrete recommendations.
+
+## Key facts
+
+- Company: LavoPilot SAS — 2 rue du Champ de l'Alouette, 75013 Paris, France (registration in progress).
+- Contact: paul@lavopilot.com
+- Hosting & data: hosted on cloud infrastructure in the European Union (France region); GDPR-compliant.
+- Pricing: billed per connected machine, monthly, no commitment — contact us for a quote.
+- Languages: French and English.
+
+## Links
+
+- Website: https://lavopilot.com/
+- App login: https://dev-app.lavopilot.com/login
+- Book a call (Calendly): https://calendly.com/lavopilot
+- Contact email: paul@lavopilot.com

@@ -1,13 +1,17 @@
 name: Deploy
 
 # Safety model:
-#   * push to main       -> PLAN ONLY (no apply, no migrate, no deploy). Review the
-#                           plan before promoting; nothing mutates infra/DB on merge.
+#   * push to main       -> PLAN ONLY for infra (no apply, no migrate) + auto-deploy
+#                           of the STATIC marketing site (apps/site) to S3+CloudFront.
+#                           The site sync mutates nothing but static content — no
+#                           infra/DB/API changes happen on merge.
 #   * workflow_dispatch  -> APPLY + migrate + web/API deploy to the chosen env,
 #                           behind a GitHub Environment (protected — reviewer
 #                           approval — for staging/prod; require it on dev too).
 # OIDC to AWS — no static keys. Configure repo/environment vars: AWS_ROLE_ARN,
-# WEB_BUCKET, CF_DISTRIBUTION_ID, API_FUNCTION_NAME, API_BASE_URL, and the TF backend.
+# WEB_BUCKET, CF_DISTRIBUTION_ID, API_FUNCTION_NAME, API_BASE_URL, SITE_BUCKET,
+# SITE_CF_DISTRIBUTION_ID (= TF outputs site_bucket / site_distribution_id), and
+# the TF backend.
 
 on:
   push:
@@ -48,6 +52,31 @@ jobs:
         run: |
           terraform init
           terraform plan -input=false
+
+  # Static marketing site (apps/site) — auto-deployed on every push to main.
+  # Deliberately NOT environment-gated: it only syncs static files to the site's
+  # own S3 bucket + invalidates CloudFront. It never touches infra, the DB, the
+  # web app or the API, so "deploy on push" here is low-risk.
+  site:
+    if: github.event_name == 'push'
+    name: deploy site (dev)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-west-3
+      - name: Sync site to S3 + invalidate CloudFront
+        run: |
+          # Static assets: short cache; index.html: no-cache so edits show live.
+          aws s3 sync apps/site "s3://${{ vars.SITE_BUCKET }}" --delete \
+            --exclude '.DS_Store' --cache-control 'public,max-age=300'
+          aws s3 cp apps/site/index.html "s3://${{ vars.SITE_BUCKET }}/index.html" \
+            --cache-control 'no-cache' --content-type 'text/html; charset=utf-8'
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.SITE_CF_DISTRIBUTION_ID }}" --paths '/*'
 
   # Manual, environment-gated apply + deploy.
   deploy:
