@@ -7,6 +7,11 @@ const schema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   DATABASE_URL: z.string().default('postgres://pilotage:pilotage@localhost:5432/pilotage'),
   DATABASE_APP_ROLE: z.string().default('app_rw'),
+  // In AWS the DB lives behind a private RDS Proxy with credentials in Secrets
+  // Manager. When both are set, the app assembles DATABASE_URL from them at boot
+  // (sslmode=require) so the password never has to live in the Lambda env.
+  DB_PROXY_ENDPOINT: z.string().optional(),
+  DB_SECRET_ARN: z.string().optional(),
   // Fail-safe default: OFF. Must be explicitly opted into for local dev, and is
   // hard-refused when NODE_ENV=production (see loadEnv below).
   AUTH_DEV_BYPASS: z
