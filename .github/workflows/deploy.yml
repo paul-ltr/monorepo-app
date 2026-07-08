@@ -122,11 +122,10 @@ jobs:
 
       - name: Package & deploy API (Lambda)
         run: |
-          # Bundle the NestJS Lambda handler with esbuild + a decorator-metadata
-          # plugin (NestJS DI needs emitDecoratorMetadata). See RUNBOOK.md.
-          pnpm --filter @pilotage/api exec \
-            esbuild src/lambda.ts --bundle --platform=node --target=node20 \
-            --outfile=apps/api/dist/lambda.js --external:aws-sdk
+          # Bundle the NestJS Lambda handler. NestJS DI needs correct
+          # emitDecoratorMetadata, which plain esbuild/transpileModule can't
+          # produce, so the build uses SWC (see apps/api/build.lambda.mjs).
+          pnpm --filter @pilotage/api run build:lambda
           (cd apps/api/dist && zip -q lambda.zip lambda.js)
           aws lambda update-function-code \
             --function-name "${{ vars.API_FUNCTION_NAME }}" \
