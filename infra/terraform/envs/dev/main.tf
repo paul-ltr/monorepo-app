@@ -62,10 +62,12 @@ module "web" {
 }
 
 module "site" {
-  source = "../../modules/site"
-  name   = local.name
-  env    = var.env
-  tags   = local.tags
+  source              = "../../modules/site"
+  name                = local.name
+  env                 = var.env
+  domain_aliases      = [var.domain_name, "www.${var.domain_name}"]
+  acm_certificate_arn = aws_acm_certificate_validation.site.certificate_arn
+  tags                = local.tags
 }
 
 module "api" {
