@@ -17,7 +17,7 @@ let cached: Handler | undefined;
 
 async function bootstrap(): Promise<Handler> {
   const expressApp = express();
-  const app = await NestFactory.create(new ExpressAdapter(expressApp), { bufferLogs: false });
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp), { bufferLogs: false });
   const env = loadEnv();
   app.enableCors({ origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: true });
   await app.init();
