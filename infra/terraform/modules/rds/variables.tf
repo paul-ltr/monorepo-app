@@ -14,8 +14,11 @@ variable "master_username" {
   default = "pilotage_admin"
 }
 variable "engine_version" {
-  type    = string
-  default = "16.9" # 16.4 was retired in eu-west-3; 16.9+ are the available 16.x
+  type = string
+  # Major version only: with auto_minor_version_upgrade on (default), AWS bumps
+  # the minor version (e.g. 16.9 -> 16.13) and the provider suppresses that diff
+  # when only the major is pinned — avoids a spurious "downgrade" plan each time.
+  default = "16"
 }
 variable "instance_class" {
   type    = string
