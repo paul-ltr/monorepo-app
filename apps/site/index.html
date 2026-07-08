@@ -27,7 +27,7 @@
 <meta name="twitter:description" content="Supervision, recettes, énergie et maintenance en un seul endroit. Piloté par l'IA.">
 <meta name="twitter:image" content="https://lavopilot.com/brand/logo-lockup.png">
 <!-- Runtime config — wired at deploy time (Terraform passes the real platform + API URLs). -->
-<meta name="lavopilot:app-login" content="https://app.lavopilot.com/login">
+<meta name="lavopilot:app-login" content="https://dev-app.lavopilot.com/login">
 <meta name="lavopilot:leads-endpoint" content="https://api.lavopilot.com/public/leads">
 <meta name="lavopilot:calendly" content="https://calendly.com/lavopilot">
 <!-- Structured data — helps both search engines and LLMs understand the product. -->
@@ -328,7 +328,7 @@ const I = {
 
 // Runtime config — read from <meta> so Terraform can inject the real URLs per env.
 const metaCfg = (n,d) => (document.querySelector(`meta[name="${n}"]`)||{}).content || d;
-const APP_LOGIN_URL = metaCfg('lavopilot:app-login', 'https://app.lavopilot.com/login');
+const APP_LOGIN_URL = metaCfg('lavopilot:app-login', 'https://dev-app.lavopilot.com/login');
 const LEADS_ENDPOINT = metaCfg('lavopilot:leads-endpoint', 'https://api.lavopilot.com/public/leads');
 const CALENDLY_URL = metaCfg('lavopilot:calendly', 'https://calendly.com/lavopilot');
 
@@ -380,7 +380,7 @@ function homeView(t){
         <div style="border-radius:18px;border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-lg);overflow:hidden;animation:pl-float 6s ease-in-out infinite">
           <div style="height:40px;display:flex;align-items:center;gap:7px;padding:0 15px;border-bottom:1px solid var(--border);background:var(--surface-2)">
             <span style="width:10px;height:10px;border-radius:50%;background:#E6E9EE"></span><span style="width:10px;height:10px;border-radius:50%;background:#E6E9EE"></span><span style="width:10px;height:10px;border-radius:50%;background:#E6E9EE"></span>
-            <span style="margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg-subtle)">app.lavopilot.com</span>
+            <span style="margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg-subtle)">dev-app.lavopilot.com</span>
           </div>
           <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
             <div style="display:flex;gap:12px">

@@ -29,6 +29,6 @@ The AI copilot does not just display numbers: it interprets them and recommends 
 ## Links
 
 - Website: https://lavopilot.com/
-- App login: https://app.lavopilot.com/login
+- App login: https://dev-app.lavopilot.com/login
 - Book a call (Calendly): https://calendly.com/lavopilot
 - Contact email: paul@lavopilot.com
