@@ -14,6 +14,11 @@ output "db_secret_arn" {
   value = aws_secretsmanager_secret.db.arn
 }
 
+# Proxy-shaped secret for the data_rw role (proxy auth + ops password sync).
+output "db_data_rw_secret_arn" {
+  value = aws_secretsmanager_secret.data_rw.arn
+}
+
 output "db_name" {
   value = var.db_name
 }

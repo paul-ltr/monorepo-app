@@ -4,6 +4,7 @@ output "private_subnet_ids" { value = module.network.private_subnet_ids }
 output "db_security_group_id" { value = module.rds.db_security_group_id }
 output "db_proxy_endpoint" { value = module.rds.db_proxy_endpoint }
 output "db_secret_arn" { value = module.rds.db_secret_arn }
+output "db_data_rw_secret_arn" { value = module.rds.db_data_rw_secret_arn }
 output "data_lake_kms_key_arn" { value = module.security.kms_key_arn }
 output "region" { value = var.region }
 output "env" { value = var.env }
