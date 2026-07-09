@@ -1,5 +1,20 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { env } from './env';
+import {
+  completeNewPassword as cognitoCompleteNewPassword,
+  refreshSession,
+  restoreSession,
+  signIn,
+  signOut as cognitoSignOut,
+} from './cognito';
 
 export interface AuthUser {
   email: string;
@@ -40,50 +55,68 @@ const AuthContext = createContext<AuthCtx>({
   logout: () => {},
 });
 
+const MOCK_MODE = env.useMocks || env.authDevBypass;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(readStored);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const normalized = email.trim().toLowerCase();
-
-    // Mock/dev mode: validate against the demo account. Real Cognito sign-in
-    // plugs in here (exchange credentials for tokens) when mocks are off.
-    if (env.useMocks || env.authDevBypass) {
-      if (normalized !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
-        throw new Error('invalid_credentials');
-      }
-    } else {
-      // TODO: wire Amazon Cognito USER_PASSWORD_AUTH here.
-      throw new Error('auth_not_configured');
-    }
-
-    const next = { email: normalized };
+  const persist = useCallback((next: AuthUser | null) => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      if (next) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      else localStorage.removeItem(STORAGE_KEY);
     } catch {
       /* ignore */
     }
     setUser(next);
   }, []);
 
+  // Real mode: restore a persisted Cognito session on load (refreshes tokens),
+  // and keep the cached access token fresh (access tokens live 60 min).
+  useEffect(() => {
+    if (MOCK_MODE) return;
+    let alive = true;
+    void restoreSession().then((email) => {
+      if (!alive) return;
+      if (email) persist({ email });
+      else if (readStored()) persist(null); // stale local flag, no Cognito session
+    });
+    const id = window.setInterval(() => void refreshSession(), 30 * 60 * 1000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [persist]);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const normalized = email.trim().toLowerCase();
+
+      if (MOCK_MODE) {
+        // Mock/dev mode: validate against the demo account.
+        if (normalized !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
+          throw new Error('invalid_credentials');
+        }
+      } else {
+        const res = await signIn(normalized, password);
+        // Invited users must set a permanent password first (onboarding wizard
+        // calls completeNewPassword); don't mark them signed-in yet.
+        if (res.newPasswordRequired) throw new Error('new_password_required');
+      }
+
+      persist({ email: normalized });
+    },
+    [persist],
+  );
+
   const completeNewPassword = useCallback(async (password: string) => {
     if (password.trim().length < 8) throw new Error('weak_password');
-    // Mock/dev: nothing to persist — the user is already signed in. Real Cognito
-    // completeNewPassword(challenge, password) plugs in here when mocks are off.
-    if (!env.useMocks && !env.authDevBypass) {
-      // TODO: wire Amazon Cognito NEW_PASSWORD_REQUIRED completion here.
-      throw new Error('auth_not_configured');
-    }
+    if (!MOCK_MODE) await cognitoCompleteNewPassword(password);
   }, []);
 
   const logout = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
-    setUser(null);
-  }, []);
+    if (!MOCK_MODE) cognitoSignOut();
+    persist(null);
+  }, [persist]);
 
   const value = useMemo(
     () => ({ user, login, completeNewPassword, logout }),

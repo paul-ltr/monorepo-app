@@ -1,13 +1,14 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { createClient, type PilotageApi } from '@pilotage/api-client';
 import { env } from './env';
+import { getAccessToken } from './cognito';
 
-// One client per app. Token wiring (Cognito) plugs in here when AUTH_DEV_BYPASS
-// is off; in mock/dev mode there is no token.
+// One client per app. In real mode it attaches the current Cognito access token
+// as a bearer (the API verifies the access token); mock/dev mode has no token.
 const client: PilotageApi = createClient({
   mock: env.useMocks,
   baseUrl: env.apiBaseUrl,
-  getToken: () => null,
+  getToken: () => getAccessToken(),
 });
 
 const ApiContext = createContext<PilotageApi>(client);
