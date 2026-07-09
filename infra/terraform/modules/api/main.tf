@@ -103,6 +103,10 @@ resource "aws_lambda_function" "api" {
       COGNITO_USER_POOL_ID = var.cognito_user_pool_id
       COGNITO_CLIENT_ID    = var.cognito_client_id
       COGNITO_REGION       = var.region
+      # Public URLs for connector OAuth (Enedis/GRDF/…): the callback redirect_uri
+      # and the post-consent bounce back to the web console. Default localhost.
+      API_PUBLIC_URL = aws_apigatewayv2_api.this.api_endpoint
+      WEB_PUBLIC_URL = var.web_public_url
     }
   }
 

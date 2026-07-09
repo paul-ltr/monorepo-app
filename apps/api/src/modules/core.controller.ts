@@ -28,10 +28,17 @@ export class CoreController {
   ) {}
 
   @Get('me')
-  me(@Ctx() ctx: RequestContext): SessionInfo {
+  async me(@Ctx() ctx: RequestContext): Promise<SessionInfo> {
+    const [row] = await this.db.run((tx) =>
+      tx
+        .select({ name: schema.tenant.name })
+        .from(schema.tenant)
+        .where(eq(schema.tenant.id, ctx.tenantId))
+        .limit(1),
+    );
     return {
       user: { id: ctx.userId, email: ctx.email, fullName: ctx.email },
-      tenant: { id: ctx.tenantId, name: '' },
+      tenant: { id: ctx.tenantId, name: row?.name ?? '' },
       roles: ctx.roles,
       permissions: ctx.permissions,
       superuser: ctx.superuser,
