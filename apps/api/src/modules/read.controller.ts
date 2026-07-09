@@ -1,6 +1,11 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { generateOperatInput, period as periodSchema, type Period } from '@pilotage/shared';
+import {
+  generateOperatInput,
+  machineDistPeriod,
+  period as periodSchema,
+  type Period,
+} from '@pilotage/shared';
 import { ReadService } from './read.service';
 import { AuditService } from './audit.service';
 import { RequirePermission, Ctx } from '@/auth/rbac';
@@ -30,6 +35,13 @@ export class ReadController {
   @RequirePermission('M1:machines:view')
   machineStatuses() {
     return this.read.getMachineStatuses();
+  }
+
+  // Must precede `machines/:id` so the literal path isn't captured as an id.
+  @Get('machines/state-distribution')
+  @RequirePermission('M1:machines:view')
+  machineStateDistribution(@Query('period') period?: string, @Query('siteId') siteId?: string) {
+    return this.read.getMachineStateDistribution(machineDistPeriod.catch('30d').parse(period), siteId);
   }
 
   @Get('machines/:id')

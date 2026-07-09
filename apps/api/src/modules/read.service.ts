@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { fixtures } from '@pilotage/api-client';
-import { applyConnectorHistories } from '@pilotage/shared';
+import { applyConnectorHistories, buildStateDistribution } from '@pilotage/shared';
 import type {
   Period,
   DashboardSummary,
@@ -14,6 +14,9 @@ import type {
   AdminSummary,
   NotificationList,
   MachineDetail,
+  MachineDistPeriod,
+  MachineStateCounts,
+  MachineStateDistribution,
   OperatReport,
 } from '@pilotage/shared';
 import type { MachineStatusList } from '@pilotage/api-client';
@@ -39,6 +42,15 @@ export class ReadService {
   }
   getMachineDetail(id: string): MachineDetail {
     return fixtures.machineDetail(id);
+  }
+  /** Daily state repartition + average shares over the window (mirrors the mock). */
+  getMachineStateDistribution(period: MachineDistPeriod, siteId?: string): MachineStateDistribution {
+    const items = siteId
+      ? fixtures.machineStatuses.items.filter((m) => m.siteId === siteId)
+      : fixtures.machineStatuses.items;
+    const counts: MachineStateCounts = { free: 0, running: 0, finished: 0, out_of_service: 0, offline: 0 };
+    for (const m of items) counts[m.state] += 1;
+    return buildStateDistribution(period, counts, siteId ?? 'fleet');
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getRevenue(_period: Period): RevenueSummary {
