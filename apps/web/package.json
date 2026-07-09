@@ -16,6 +16,7 @@
     "@pilotage/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "@tanstack/react-router": "^1.95.1",
+    "amazon-cognito-identity-js": "^6.3.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^24.2.0",
