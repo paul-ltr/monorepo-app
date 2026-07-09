@@ -20,6 +20,7 @@ output "web_acm_certificate_arn" { value = aws_acm_certificate.web.arn }
 output "site_bucket" { value = module.site.bucket }
 output "site_distribution_id" { value = module.site.distribution_id }
 output "site_distribution_domain" { value = module.site.distribution_domain }
+output "site_url" { value = "https://${var.domain_name}" }
 output "api_endpoint" { value = module.api.api_endpoint }
 output "api_function_name" { value = module.api.function_name }
 output "cognito_user_pool_id" { value = module.cognito.user_pool_id }

@@ -105,6 +105,13 @@ resource "aws_db_instance" "this" {
   performance_insights_enabled = true
 
   tags = local.tags
+
+  # engine_version pins only the major (see variables.tf). AWS applies minor
+  # upgrades automatically (auto_minor_version_upgrade defaults on), so ignore
+  # post-create drift on the running minor version to avoid a spurious plan.
+  lifecycle {
+    ignore_changes = [engine_version]
+  }
 }
 
 # --- RDS Proxy (connection pooling for Lambda) -------------------------------
