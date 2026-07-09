@@ -89,5 +89,6 @@ module "api" {
   # WAFv2 cannot associate with an API Gateway v2 HTTP API (only REST/ALB/
   # CloudFront), so leave it detached. Protect the API via CloudFront WAF later.
   attach_web_acl = false
+  web_public_url = "https://${var.web_domain}"
   tags           = local.tags
 }

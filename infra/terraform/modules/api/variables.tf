@@ -55,6 +55,10 @@ variable "attach_web_acl" {
   default = false # associate the regional WAF; kept separate from web_acl_arn so
   # `count` stays statically-known when the ARN is computed in the same apply
 }
+variable "web_public_url" {
+  type    = string
+  default = "http://localhost:5173" # web console origin for connector OAuth bounce-back
+}
 variable "tags" {
   type    = map(string)
   default = {}
