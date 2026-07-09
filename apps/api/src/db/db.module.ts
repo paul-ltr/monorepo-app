@@ -1,9 +1,28 @@
 import { Global, Inject, Injectable, Module } from '@nestjs/common';
+import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { createDb, withTenantContext, type Database } from '@pilotage/db';
 import { loadEnv } from '@/config/env';
 import { getRequestContext } from '@/common/request-context';
 
 export const DATABASE = 'DATABASE';
+
+/**
+ * Build the connection string. In AWS the DB is a private RDS Proxy with the
+ * master credentials in Secrets Manager: when `DB_PROXY_ENDPOINT` +
+ * `DB_SECRET_ARN` are set we fetch the secret and assemble the URL (TLS
+ * required by the proxy), so the password never lives in the Lambda env. Locally
+ * (neither set) we use `DATABASE_URL`.
+ */
+async function resolveDatabaseUrl(): Promise<string> {
+  const env = loadEnv();
+  if (!env.DB_PROXY_ENDPOINT || !env.DB_SECRET_ARN) return env.DATABASE_URL;
+  const sm = new SecretsManagerClient({ region: env.AWS_REGION ?? env.COGNITO_REGION });
+  const res = await sm.send(new GetSecretValueCommand({ SecretId: env.DB_SECRET_ARN }));
+  const s = JSON.parse(res.SecretString ?? '{}') as { username: string; password: string; dbname?: string };
+  const user = encodeURIComponent(s.username);
+  const pass = encodeURIComponent(s.password);
+  return `postgresql://${user}:${pass}@${env.DB_PROXY_ENDPOINT}:5432/${s.dbname ?? 'pilotage'}?sslmode=require`;
+}
 
 /**
  * Runs a callback inside a transaction with the RLS GUCs (app.current_tenant /
@@ -51,7 +70,7 @@ export class ScopedDb {
 @Global()
 @Module({
   providers: [
-    { provide: DATABASE, useFactory: (): Database => createDb(loadEnv().DATABASE_URL, { max: 5 }) },
+    { provide: DATABASE, useFactory: async (): Promise<Database> => createDb(await resolveDatabaseUrl(), { max: 5 }) },
     ScopedDb,
   ],
   exports: [DATABASE, ScopedDb],

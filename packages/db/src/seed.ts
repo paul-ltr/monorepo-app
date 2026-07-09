@@ -4,6 +4,7 @@
  * locally. Idempotent: re-running wipes and recreates the demo tenant; the RBAC
  * catalog is upserted. Runs as the migration role (bypasses RLS).
  */
+import { pathToFileURL } from 'node:url';
 import { eq, inArray } from 'drizzle-orm';
 import {
   PERMISSIONS,
@@ -371,7 +372,8 @@ async function seedConsole(demoTenantId: string) {
   }
 }
 
-async function main() {
+/** Run the full seed. Callable from a script or an ops Lambda (returns a summary). */
+export async function runSeed(): Promise<{ tenantId: string; sites: number }> {
   console.log('→ seeding RBAC catalog');
   await seedRbac();
   console.log('→ seeding demo tenant');
@@ -379,10 +381,15 @@ async function main() {
   console.log('→ seeding console groups, accounts & tickets');
   await seedConsole(tenant.id);
   console.log(`✓ seed complete — tenant ${tenant.id} with ${sites.length} sites`);
-  process.exit(0);
+  return { tenantId: tenant.id, sites: sites.length };
 }
 
-main().catch((err) => {
-  console.error('seed failed:', err);
-  process.exit(1);
-});
+// CLI entry (`pnpm --filter @pilotage/db seed`): run + exit. Skipped on import.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runSeed()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('seed failed:', err);
+      process.exit(1);
+    });
+}
