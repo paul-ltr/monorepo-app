@@ -217,14 +217,14 @@ export function Machines() {
                 }
                 bodyClassName="p-4"
               >
-                {dist ? (
+                {dist?.averageShares && Array.isArray(dist.points) ? (
                   <>
                     <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5">
                       {COUNTERS.map((c) => (
                         <div key={c.key} className="flex items-center gap-1.5 text-[11.5px] font-semibold">
                           <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: c.color }} />
                           <span className={c.text}>{c.label}</span>
-                          <span className="tabular-nums text-fg-subtle">{dist.averageShares[c.key]} %</span>
+                          <span className="tabular-nums text-fg-subtle">{dist.averageShares[c.key] ?? 0} %</span>
                         </div>
                       ))}
                     </div>
