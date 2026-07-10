@@ -93,6 +93,29 @@ RDS Proxy absorbs connection churn from Lambda — keep `max` connections modest
 a gated CD step against the RDS Proxy endpoint, with the migration role (not
 `app_rw`).
 
+### Sync the `data_rw` password (one-off per env, after RDS/proxy apply)
+
+The data repo authenticates as `data_rw` directly through the proxy, so the DB
+role's password must equal what the `rds` module generated and stored in
+`pilotage/<env>/db-data_rw`. `bootstrap.sql` only creates the role (with a dev
+password) and never overwrites it, so set it explicitly via the ops Lambda. RDS
+is private — run this from inside the VPC (the ops Lambda deployed with the API
+role + a `DATABASE_URL` for the **master** role, per `packages/db/src/ops.lambda.ts`):
+
+```bash
+ENV=dev
+PW=$(aws secretsmanager get-secret-value --secret-id "pilotage/$ENV/db-data_rw" \
+      --query SecretString --output text | jq -r .password)
+aws lambda invoke --function-name "pilotage-$ENV-ops" \
+  --payload "$(jq -nc --arg pw "$PW" \
+      '{action:"set-role-password",role:"data_rw",password:$pw}')" \
+  --cli-binary-format raw-in-base64-out /dev/stdout
+```
+
+The password is read from Secrets Manager at invoke time (never committed) and
+`ALTER ROLE` is escaped server-side. Re-running is safe (idempotent). Verify from
+the data side: `curl https://<data-api>/ready` → `{"status":"ok","db":true}`.
+
 ## Smoke test (post-deploy)
 
 ```bash

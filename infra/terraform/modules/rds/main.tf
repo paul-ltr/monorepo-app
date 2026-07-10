@@ -12,6 +12,16 @@ resource "random_password" "db" {
   special = false
 }
 
+# The data repo authenticates as the `data_rw` Postgres role directly through the
+# RDS Proxy (unlike the app, which connects as master and `SET ROLE app_rw`). So
+# data_rw needs a real, managed password — generated here, published to Secrets
+# Manager, and synced onto the DB role via the ops-lambda (see RUNBOOK). special
+# = false keeps it URL-safe for the data repo's DATABASE_URL.
+resource "random_password" "data_rw" {
+  length  = 32
+  special = false
+}
+
 resource "aws_secretsmanager_secret" "db" {
   name        = "pilotage/${var.env}/db"
   description = "Pilotage RDS master credentials (${var.env})"
@@ -24,6 +34,32 @@ resource "aws_secretsmanager_secret_version" "db" {
   secret_string = jsonencode({
     username = var.master_username
     password = random_password.db.result
+    engine   = "postgres"
+    host     = aws_db_instance.this.address
+    port     = 5432
+    dbname   = var.db_name
+    # The data repo reads these two keys from db_secret_arn (its
+    # common.db.build_database_url) to connect as data_rw. Master keys stay intact.
+    data_rw_username = "data_rw"
+    data_rw_password = random_password.data_rw.result
+  })
+}
+
+# Dedicated, proxy-shaped secret for data_rw. An RDS Proxy auth entry maps exactly
+# one {username,password}, so data_rw gets its own secret (the master secret's
+# extra data_rw_* keys are for the data repo, not a shape the proxy understands).
+resource "aws_secretsmanager_secret" "data_rw" {
+  name        = "pilotage/${var.env}/db-data_rw"
+  description = "Pilotage RDS data_rw role credentials (${var.env}) — RDS Proxy auth"
+  kms_key_id  = var.kms_key_arn
+  tags        = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "data_rw" {
+  secret_id = aws_secretsmanager_secret.data_rw.id
+  secret_string = jsonencode({
+    username = "data_rw"
+    password = random_password.data_rw.result
     engine   = "postgres"
     host     = aws_db_instance.this.address
     port     = 5432
@@ -134,9 +170,10 @@ resource "aws_iam_role_policy" "proxy_secret" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
-      Resource = aws_secretsmanager_secret.db.arn
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
+      # Both proxy auth secrets: master (admin/app) + data_rw (data repo).
+      Resource = [aws_secretsmanager_secret.db.arn, aws_secretsmanager_secret.data_rw.arn]
       }, {
       Effect   = "Allow"
       Action   = ["kms:Decrypt"]
@@ -156,6 +193,14 @@ resource "aws_db_proxy" "this" {
     auth_scheme = "SECRETS"
     iam_auth    = "DISABLED"
     secret_arn  = aws_secretsmanager_secret.db.arn
+  }
+  # Second auth entry so the data repo can connect through the proxy as data_rw.
+  # RDS Proxy only admits client logins for users whose creds are in a registered
+  # auth secret, so without this data_rw cannot reach the DB at all.
+  auth {
+    auth_scheme = "SECRETS"
+    iam_auth    = "DISABLED"
+    secret_arn  = aws_secretsmanager_secret.data_rw.arn
   }
   tags = local.tags
 }
