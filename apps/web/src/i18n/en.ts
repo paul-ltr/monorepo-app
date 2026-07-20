@@ -4,10 +4,13 @@ import type { Translations } from './fr';
 export const en: Translations = {
   nav: {
     overview: 'Overview',
+    assistant: 'LavoPilot',
+    connections: 'Connections',
+    dashboard: 'Dashboard',
     exploitation: 'Operations',
     machines: 'Machines & monitoring',
     revenue: 'Revenue & payments',
-    energy: 'Energy & compliance',
+    energy: 'Energy',
     maintenance: 'Maintenance',
     pricing: 'Pricing & yield',
     relation: 'Customers & network',
@@ -45,9 +48,10 @@ export const en: Translations = {
     stale: 'Stale data',
   },
   titles: {
-    dashboard: 'Overview',
+    dashboard: 'Dashboard',
+    connections: 'Connections',
     machines: 'Machines & monitoring',
-    energy: 'Energy & compliance',
+    energy: 'Energy',
     revenue: 'Revenue & payments',
     maintenance: 'Maintenance & CMMS',
     pricing: 'Pricing & yield',

@@ -11,6 +11,8 @@ import { AuditService } from './modules/audit.service';
 import { HealthController } from './modules/health.controller';
 import { CoreController } from './modules/core.controller';
 import { ReadController } from './modules/read.controller';
+import { AgentController } from './modules/agent.controller';
+import { AgentService } from './modules/agent.service';
 import { ActionsController } from './modules/actions.controller';
 import { InternalController } from './modules/internal.controller';
 import { StubsController } from './modules/stubs.controller';
@@ -42,6 +44,7 @@ import { GrdfService } from './modules/grdf.service';
     HealthController,
     CoreController,
     ReadController,
+    AgentController,
     ActionsController,
     InternalController,
     StubsController,
@@ -54,6 +57,7 @@ import { GrdfService } from './modules/grdf.service';
   providers: [
     LlmService,
     ReadService,
+    AgentService,
     AuditService,
     ConsoleService,
     UsersService,

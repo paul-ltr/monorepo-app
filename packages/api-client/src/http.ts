@@ -35,7 +35,11 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     return res.json() as Promise<T>;
   }
 
-  async function send<T>(method: 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  async function send<T>(
+    method: 'POST' | 'PATCH' | 'DELETE',
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
     const token = opts.getToken?.();
     const res = await fetch(`${opts.baseUrl}${path}`, {
       method,
@@ -118,5 +122,13 @@ export function createHttpClient(opts: HttpClientOptions): PilotageApi {
     mieleComplete: (input) => post('/connectors/miele/complete', input),
     mieleAssociate: (input) => post('/connectors/miele/associate', input),
     mieleDisconnect: (input) => post('/connectors/miele/disconnect', input),
+    agentChat: (input) => post('/agent/chat', input),
+    getMemory: () => get('/agent/memory'),
+    updateMemory: (input) => patch('/agent/memory', input),
+    getDocuments: () => get('/agent/documents'),
+    uploadDocument: (input) => post('/agent/documents', input),
+    deleteDocument: (id) => del(`/agent/documents/${id}`),
+    wilineConnect: (input) => post('/connectors/wiline/connect', input),
+    otherConnect: (input) => post('/connectors/other/connect', input),
   };
 }

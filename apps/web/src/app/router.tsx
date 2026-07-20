@@ -1,5 +1,7 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { Shell } from './Shell';
+import { Chat } from '@/screens/Chat';
+import { Connections } from '@/screens/Connections';
 import { Dashboard } from '@/screens/Dashboard';
 import { Machines } from '@/screens/Machines';
 import { Revenue } from '@/screens/Revenue';
@@ -18,7 +20,9 @@ const rootRoute = createRootRoute({ component: Shell });
 
 // Inline literal paths so TanStack Router can infer the typed route tree.
 const routeTree = rootRoute.addChildren([
-  createRoute({ getParentRoute: () => rootRoute, path: '/', component: Dashboard }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/', component: Chat }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/connections', component: Connections }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/dashboard', component: Dashboard }),
   createRoute({ getParentRoute: () => rootRoute, path: '/machines', component: Machines }),
   createRoute({ getParentRoute: () => rootRoute, path: '/revenue', component: Revenue }),
   createRoute({ getParentRoute: () => rootRoute, path: '/energy', component: Energy }),

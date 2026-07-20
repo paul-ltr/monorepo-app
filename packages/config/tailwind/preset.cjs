@@ -69,10 +69,23 @@ module.exports = {
           from: { transform: 'translateX(24px)', opacity: '0' },
           to: { transform: 'translateX(0)', opacity: '1' },
         },
+        'lp-wave': {
+          '0%,60%,100%': { transform: 'rotate(0deg)' },
+          '15%,45%': { transform: 'rotate(22deg)' },
+          '30%': { transform: 'rotate(8deg)' },
+        },
+        'lp-bounce': {
+          '0%,100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' },
+        },
+        'lp-dots': { '0%,80%,100%': { opacity: '0.25' }, '40%': { opacity: '1' } },
       },
       animation: {
         'pl-pulse': 'pl-pulse 2.2s ease-in-out infinite',
         'pl-slide': 'pl-slide 0.22s ease',
+        'lp-wave': 'lp-wave 1.8s ease-in-out infinite',
+        'lp-bounce': 'lp-bounce 3s ease-in-out infinite',
+        'lp-dots': 'lp-dots 1.2s ease-in-out infinite',
       },
     },
   },

@@ -40,12 +40,123 @@ const delay = <T>(value: T, ms = 180): Promise<T> =>
   new Promise((resolve) => setTimeout(() => resolve(value), ms));
 
 const uid = () =>
-  `00000000-0000-7000-8000-${Math.floor(Math.random() * 1e12).toString().padStart(12, '0')}`;
+  `00000000-0000-7000-8000-${Math.floor(Math.random() * 1e12)
+    .toString()
+    .padStart(12, '0')}`;
+
+const euro = (cents: number) =>
+  new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+
+/**
+ * Deterministic offline LavoPilot — mirrors the backend AgentService so the chat
+ * works with no Mistral key. Routes the last user message to a data-backed reply
+ * drawn from the bundled fixtures, scoped to the whole franchise or one site.
+ */
+function lavopilotReply(
+  input: import('@pilotage/shared').AgentChatInput,
+): import('@pilotage/shared').AgentChatResult {
+  const last = [...input.messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+  const q = last.toLowerCase();
+  const site = input.scope.type === 'site' ? (input.scope.name ?? 'ce site') : null;
+  const perimeter = site ? `sur ${site}` : 'sur toute la franchise';
+  const has = (...ks: string[]) => ks.some((k) => q.includes(k));
+
+  const base = (
+    message: string,
+    usedTools: string[],
+    suggestions: string[],
+    card: import('@pilotage/shared').ChatCard | null = null,
+  ): import('@pilotage/shared').AgentChatResult => ({
+    message,
+    model: 'lavopilot-offline',
+    usedTools,
+    card,
+    suggestions,
+  });
+
+  // Connect a meter — surface the reusable in-chat onboarding card.
+  if (has('pce', 'pdl', 'prm', 'compteur', 'raccord', 'connecter', 'brancher', 'enedis', 'grdf')) {
+    const gas = has('pce', 'grdf', 'gaz');
+    return base(
+      `Avec plaisir ! Je peux vous aider à connecter votre ${gas ? 'compteur gaz (PCE)' : 'compteur électrique (PDL/PRM)'} en quelques secondes. Renseignez le numéro ci-dessous et je m'occupe du reste.`,
+      ['connectors'],
+      ['Connecter aussi mon gaz', 'Où trouver mon numéro de compteur ?'],
+      {
+        kind: 'connect',
+        provider: gas ? 'grdf' : 'enedis',
+        title: gas
+          ? 'Connecter un PCE (gaz · GRDF ADICT)'
+          : 'Connecter un PDL/PRM (électricité · Enedis)',
+        note: 'Aucune donnée n’est importée avant votre consentement.',
+      },
+    );
+  }
+
+  if (has('recette', 'revenu', 'chiffre', 'ca ', 'encaiss', 'monétique', 'monetique', 'euros')) {
+    const d = f.dashboard;
+    return base(
+      `Aujourd'hui ${perimeter}, les recettes s'élèvent à ${euro(d.revenueToday.amountCents)} (${d.revenueDelta.pct > 0 ? '+' : ''}${d.revenueDelta.pct}% vs hier). Le panier moyen tourne autour de ${euro(f.revenue.averageBasket.amountCents)} sur ${f.revenue.cycles} cycles.`,
+      ['dashboard', 'revenue'],
+      [
+        'Détail par moyen de paiement',
+        'Quels sites sous-performent ?',
+        "Combien d'espèces à collecter ?",
+      ],
+    );
+  }
+
+  if (has('énergie', 'energie', 'conso', 'kwh', 'gaz', 'électr', 'electr')) {
+    const elec = f.energy.meters.find((m) => m.kind === 'electricity');
+    const gas = f.energy.meters.find((m) => m.kind === 'gas');
+    return base(
+      `Côté énergie ${perimeter} : électricité à ${elec?.value ?? 0} ${elec?.unit ?? 'kWh'} (${elec && elec.deltaPct > 0 ? '+' : ''}${elec?.deltaPct ?? 0}%) et gaz à ${gas?.value ?? 0} ${gas?.unit ?? 'kWh'} (${gas && gas.deltaPct > 0 ? '+' : ''}${gas?.deltaPct ?? 0}%). Je peux détailler l'historique de consommation si vous voulez.`,
+      ['energy'],
+      ["Voir l'historique de consommation", 'Connecter un compteur', 'Y a-t-il une anomalie ?'],
+    );
+  }
+
+  if (has('machine', 'parc', 'panne', 'hors service', 'sèche', 'seche', 'lave')) {
+    const d = f.dashboard;
+    return base(
+      `Le parc ${perimeter} compte ${d.machinesActive}/${d.machinesTotal} machines actives, dont ${d.machinesOutOfService} hors service à surveiller. Voulez-vous que je liste les machines concernées ?`,
+      ['dashboard', 'machines'],
+      ['Lister les machines en panne', 'Taux de disponibilité', 'Machines les plus rentables'],
+    );
+  }
+
+  if (has('maintenance', 'ticket', 'intervention', 'gmao', 'répar', 'repar')) {
+    const d = f.dashboard;
+    return base(
+      `Il y a ${d.openTickets} tickets de maintenance ouverts ${perimeter}, dont ${d.criticalTickets} critiques. Je peux vous résumer les priorités du jour.`,
+      ['dashboard', 'maintenance'],
+      ['Résumer les tickets critiques', 'Créer un rappel'],
+    );
+  }
+
+  // Default / greeting.
+  return base(
+    `Bonjour, je suis LavoPilot 🧺 votre copilote de laverie. ${site ? `Vous regardez actuellement **${site}**.` : 'Vous êtes sur la vue **franchise**.'} Je peux analyser vos recettes, votre énergie, votre parc de machines et vos tickets — ou vous aider à connecter une nouvelle source de données. Que puis-je faire pour vous ?`,
+    [],
+    [
+      'Comment vont mes recettes ?',
+      'Ma consommation d’énergie',
+      'Connecter un compteur',
+      'Des machines en panne ?',
+    ],
+  );
+}
 
 /** In-browser mock implementing the full API from bundled fixtures. */
 export function createMockClient(): PilotageApi {
   // Mutable copies so the back-office console reflects writes within a session.
-  const tickets: SupportTicket[] = f.supportTickets.map((t) => ({ ...t, messages: [...t.messages] }));
+  const tickets: SupportTicket[] = f.supportTickets.map((t) => ({
+    ...t,
+    messages: [...t.messages],
+  }));
   const groups: TenantGroup[] = f.tenantGroups.map((g) => ({ ...g }));
   const accounts: AccountUser[] = f.accounts.map((a) => ({ ...a }));
   const maintTickets: Ticket[] = f.maintenance.tickets.map((t) => ({ ...t }));
@@ -53,36 +164,113 @@ export function createMockClient(): PilotageApi {
   const campaigns: Campaign[] = f.customers.campaigns.map((c) => ({ ...c }));
   // Mutable copy so per-site SMS edits persist within a session.
   const sites: Site[] = f.sites.map((s) => ({ ...s }));
+  // Per-user agent memory + document context (in-session).
+  const memory = {
+    facts: [
+      'Franchise multi-sites de laveries automatiques (région lyonnaise).',
+      'Objectif : réduire la consommation d’énergie de Vénissieux.',
+    ],
+    updatedAt: new Date().toISOString(),
+  };
+  const documents: import('@pilotage/shared').UserDocument[] = [
+    {
+      id: uid(),
+      name: 'contrat-electricite-2026.pdf',
+      mime: 'application/pdf',
+      sizeBytes: 184_320,
+      note: 'Contrat de fourniture — tarif base',
+      uploadedAt: new Date(Date.now() - 86_400_000).toISOString(),
+    },
+  ];
   // Per-site contact directory (email/phone), mutable within a session.
   const siteContacts: SiteContact[] = [
-    { id: uid(), siteId: sites[0]!.id, kind: 'email', value: 'gerant.lyon3@exemple.fr', label: 'Gérant', isAlertRecipient: true },
-    { id: uid(), siteId: sites[0]!.id, kind: 'phone', value: '+33 6 11 22 33 44', label: 'Astreinte', isAlertRecipient: false },
+    {
+      id: uid(),
+      siteId: sites[0]!.id,
+      kind: 'email',
+      value: 'gerant.lyon3@exemple.fr',
+      label: 'Gérant',
+      isAlertRecipient: true,
+    },
+    {
+      id: uid(),
+      siteId: sites[0]!.id,
+      kind: 'phone',
+      value: '+33 6 11 22 33 44',
+      label: 'Astreinte',
+      isAlertRecipient: false,
+    },
   ];
   // Tenant users, mutable within a session (invitations, role changes).
   const users: AppUser[] = [
-    { id: uid(), tenantId: f.session.tenant.id, email: f.session.user.email, fullName: f.session.user.fullName, locale: 'fr-FR', status: 'active', lastLoginAt: new Date().toISOString(), roles: ['owner'] },
-    { id: uid(), tenantId: f.session.tenant.id, email: 'manager@exemple.fr', fullName: 'Camille Martin', locale: 'fr-FR', status: 'active', lastLoginAt: null, roles: ['manager'] },
-    { id: uid(), tenantId: f.session.tenant.id, email: 'compta@exemple.fr', fullName: 'Alex Dubois', locale: 'fr-FR', status: 'invited', lastLoginAt: null, roles: ['accountant'] },
+    {
+      id: uid(),
+      tenantId: f.session.tenant.id,
+      email: f.session.user.email,
+      fullName: f.session.user.fullName,
+      locale: 'fr-FR',
+      status: 'active',
+      lastLoginAt: new Date().toISOString(),
+      roles: ['owner'],
+    },
+    {
+      id: uid(),
+      tenantId: f.session.tenant.id,
+      email: 'manager@exemple.fr',
+      fullName: 'Camille Martin',
+      locale: 'fr-FR',
+      status: 'active',
+      lastLoginAt: null,
+      roles: ['manager'],
+    },
+    {
+      id: uid(),
+      tenantId: f.session.tenant.id,
+      email: 'compta@exemple.fr',
+      fullName: 'Alex Dubois',
+      locale: 'fr-FR',
+      status: 'invited',
+      lastLoginAt: null,
+      roles: ['accountant'],
+    },
   ];
   let seq = 1043;
   let maintSeq = 2242;
 
   const slaForPriority = (p: string) =>
-    p === 'critical' ? 'SLA 1 h' : p === 'high' ? 'SLA 2 h' : p === 'medium' ? 'SLA 1 j' : 'SLA 3 j';
+    p === 'critical'
+      ? 'SLA 1 h'
+      : p === 'high'
+        ? 'SLA 2 h'
+        : p === 'medium'
+          ? 'SLA 1 j'
+          : 'SLA 3 j';
 
   // Simulated Pennylane connection state (no live OAuth in mock mode).
-  let pennylane = { connected: false, company: null as string | null, expiresAt: null as string | null };
+  let pennylane = {
+    connected: false,
+    company: null as string | null,
+    expiresAt: null as string | null,
+  };
 
   // Simulated Electrolux OneApp/OCP state (no live login in mock mode).
   const elxAccounts: ElectroluxAccount[] = [];
   const elxAppliances: ElectroluxAppliance[] = [];
-  const elxStatus = () => ({ accounts: [...elxAccounts], appliances: [...elxAppliances], simulated: true });
+  const elxStatus = () => ({
+    accounts: [...elxAccounts],
+    appliances: [...elxAppliances],
+    simulated: true,
+  });
 
   // Simulated Miele state (no live OAuth in mock mode; the UI drives consent).
   const mielePending = new Map<string, { vg: string; label?: string }>();
   const mieleAccounts: MieleAccount[] = [];
   const mieleAppliances: MieleAppliance[] = [];
-  const mieleStatusOf = () => ({ accounts: [...mieleAccounts], appliances: [...mieleAppliances], simulated: true });
+  const mieleStatusOf = () => ({
+    accounts: [...mieleAccounts],
+    appliances: [...mieleAppliances],
+    simulated: true,
+  });
 
   // Transient consent state for the simulated Enedis flow (state → prm + site).
   const enedisPending = new Map<string, { prm: string | null; siteId: string }>();
@@ -131,7 +319,9 @@ export function createMockClient(): PilotageApi {
         ...f.maintenance,
         tickets: maintTickets.map((t) => ({ ...t })),
         openTickets: maintTickets.filter((t) => open.includes(t.status)).length,
-        criticalTickets: maintTickets.filter((t) => t.priority === 'critical' || t.priority === 'high').length,
+        criticalTickets: maintTickets.filter(
+          (t) => t.priority === 'critical' || t.priority === 'high',
+        ).length,
       });
     },
     createMaintenanceTicket: (input: CreateTicketInput) => {
@@ -238,7 +428,8 @@ export function createMockClient(): PilotageApi {
       if (i >= 0) sites.splice(i, 1);
       return delay({ ok: true as const });
     },
-    getSiteContacts: (siteId) => delay(siteContacts.filter((c) => c.siteId === siteId).map((c) => ({ ...c }))),
+    getSiteContacts: (siteId) =>
+      delay(siteContacts.filter((c) => c.siteId === siteId).map((c) => ({ ...c }))),
     addSiteContact: (input) => {
       const contact: SiteContact = {
         id: uid(),
@@ -300,7 +491,13 @@ export function createMockClient(): PilotageApi {
         createdAt: now,
         updatedAt: now,
         messages: [
-          { id: uid(), authorName: f.session.user.fullName, authorRole: 'client', body: input.body, at: now },
+          {
+            id: uid(),
+            authorName: f.session.user.fullName,
+            authorRole: 'client',
+            body: input.body,
+            at: now,
+          },
         ],
       };
       tickets.unshift(ticket);
@@ -316,7 +513,13 @@ export function createMockClient(): PilotageApi {
       if (input.body) {
         ticket.messages = [
           ...ticket.messages,
-          { id: uid(), authorName: 'Support LavoPilot', authorRole: 'staff', body: input.body, at: now },
+          {
+            id: uid(),
+            authorName: 'Support LavoPilot',
+            authorRole: 'staff',
+            body: input.body,
+            at: now,
+          },
         ];
       }
       if (input.status) ticket.status = input.status;
@@ -384,7 +587,10 @@ export function createMockClient(): PilotageApi {
     },
     enedisAuthorize: (input) => {
       const state = `mock-${Math.random().toString(36).slice(2, 10)}`;
-      enedisPending.set(state, { prm: input.prm ? cleanDigits(input.prm) : null, siteId: input.siteId });
+      enedisPending.set(state, {
+        prm: input.prm ? cleanDigits(input.prm) : null,
+        siteId: input.siteId,
+      });
       // No live Enedis in mock mode → the wizard drives the simulated consent.
       return delay({ authorizeUrl: `#enedis-consent/${state}`, state, simulated: true });
     },
@@ -401,7 +607,10 @@ export function createMockClient(): PilotageApi {
       enedisPending.delete(input.state);
       const usagePointId = pending.prm ?? simulatedPrm(input.state);
       const { from, to } = lastNDays(30);
-      const history = { ...buildDailyHistory('enedis', usagePointId, from, to, 18, 6), simulated: true };
+      const history = {
+        ...buildDailyHistory('enedis', usagePointId, from, to, 18, 6),
+        simulated: true,
+      };
       remember('enedis', pending.siteId, history);
       return delay({
         status: 'connected' as const,
@@ -432,7 +641,12 @@ export function createMockClient(): PilotageApi {
     },
 
     pennylaneStatus: () =>
-      delay({ connected: pennylane.connected, company: pennylane.company, simulated: true, expiresAt: pennylane.expiresAt }),
+      delay({
+        connected: pennylane.connected,
+        company: pennylane.company,
+        simulated: true,
+        expiresAt: pennylane.expiresAt,
+      }),
     pennylaneAuthorize: () => {
       const state = `pl-mock-${Math.random().toString(36).slice(2, 10)}`;
       // No live Pennylane in mock mode → the UI drives the simulated consent.
@@ -586,5 +800,48 @@ export function createMockClient(): PilotageApi {
         if (mieleAppliances[j]!.accountId === input.accountId) mieleAppliances.splice(j, 1);
       return delay(mieleStatusOf());
     },
+
+    // ── Agentic LavoPilot ────────────────────────────────────────────────────
+    agentChat: (input) => delay(lavopilotReply(input), 420),
+    getMemory: () => delay({ ...memory, facts: [...memory.facts] }),
+    updateMemory: (input) => {
+      memory.facts = [...input.facts];
+      memory.updatedAt = new Date().toISOString();
+      return delay({ ...memory, facts: [...memory.facts] });
+    },
+    getDocuments: () => delay(documents.map((d) => ({ ...d }))),
+    uploadDocument: (input) => {
+      const doc = {
+        id: uid(),
+        name: input.name,
+        mime: input.mime,
+        sizeBytes: input.sizeBytes ?? 0,
+        note: input.note ?? null,
+        uploadedAt: new Date().toISOString(),
+      };
+      documents.unshift(doc);
+      return delay({ ...doc });
+    },
+    deleteDocument: (id) => {
+      const i = documents.findIndex((d) => d.id === id);
+      if (i >= 0) documents.splice(i, 1);
+      return delay({ ok: true as const });
+    },
+
+    // ── Simple credential connectors ──────────────────────────────────────────
+    wilineConnect: (input) =>
+      delay({
+        ok: input.username.length > 0 && input.password.length > 0,
+        provider: 'wiline',
+        message: `Connexion Wi-Line établie pour « ${input.username} » (simulation).`,
+        simulated: true,
+      }),
+    otherConnect: (input) =>
+      delay({
+        ok: true,
+        provider: 'other',
+        message: `Demande enregistrée pour « ${input.label} ». Notre équipe étudie la source (simulation).`,
+        simulated: true,
+      }),
   };
 }
