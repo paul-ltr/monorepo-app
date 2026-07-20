@@ -3,6 +3,9 @@ import { z } from 'zod';
 
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
+  // Deployment environment (dev|staging|prod), set on the Lambda by Terraform.
+  // Used to build deterministic Secrets Manager paths (`pilotage/<env>/…`).
+  PILOTAGE_ENV: z.string().optional(),
   API_PORT: z.coerce.number().default(3000),
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   DATABASE_URL: z.string().default('postgres://pilotage:pilotage@localhost:5432/pilotage'),
@@ -26,7 +29,12 @@ const schema = z.object({
   COGNITO_REGION: z.string().default('eu-west-3'),
   // AWS region for Secrets Manager / Cognito admin calls (falls back to Cognito's).
   AWS_REGION: z.string().optional(),
+  // Mistral key resolution (in order): MISTRAL_API_KEY (local dev fallback), else
+  // AWS Secrets Manager at MISTRAL_SECRET_ID, else the deterministic container
+  // `pilotage/<PILOTAGE_ENV>/mistral` (created by the security TF module; the API
+  // Lambda already has GetSecretValue on it). Unset everywhere → LLM stub mode.
   MISTRAL_API_KEY: z.string().optional(),
+  MISTRAL_SECRET_ID: z.string().optional(),
   MISTRAL_MODEL_SMALL: z.string().default('mistral-small-latest'),
   MISTRAL_MODEL_LARGE: z.string().default('mistral-large-latest'),
   LLM_TENANT_MONTHLY_TOKEN_CAP: z.coerce.number().default(2_000_000),
