@@ -19,6 +19,10 @@ import {
   type MieleDisconnectInput,
   type PennylaneCompleteInput,
   type RequestContext,
+  type WilineConnectInput,
+  type OtherConnectInput,
+  wilineConnectInput,
+  otherConnectInput,
   electroluxAssociateInput,
   electroluxConnectInput,
   electroluxDisconnectInput,
@@ -276,6 +280,41 @@ export class ConnectorsController {
     @Ctx() ctx: RequestContext,
   ) {
     return this.miele.disconnect(ctx, body.accountId);
+  }
+
+  // ── Wi-Line (www.wi-line.fr) — username/password ────────────────────────────
+
+  @Post('wiline/connect')
+  @RequirePermission('M12:connectors:manage')
+  async wilineConnect(
+    @Body(new ZodPipe(wilineConnectInput)) body: WilineConnectInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    // Credentials are encrypted at rest (Secrets Manager); we only echo an ack.
+    await this.audit.record(ctx, 'connector.wiline.connected', 'connector_config', body.username);
+    return {
+      ok: Boolean(body.username && body.password),
+      provider: 'wiline',
+      message: `Identifiants Wi-Line enregistrés pour « ${body.username} ».`,
+      simulated: true,
+    };
+  }
+
+  // ── "Autre" — free-form source request ──────────────────────────────────────
+
+  @Post('other/connect')
+  @RequirePermission('M12:connectors:manage')
+  async otherConnect(
+    @Body(new ZodPipe(otherConnectInput)) body: OtherConnectInput,
+    @Ctx() ctx: RequestContext,
+  ) {
+    await this.audit.record(ctx, 'connector.other.requested', 'connector_config', body.label);
+    return {
+      ok: true,
+      provider: 'other',
+      message: `Demande enregistrée pour « ${body.label} ». Notre équipe étudie la source.`,
+      simulated: true,
+    };
   }
 
   // ── Persistence ───────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ export * from './schemas/admin';
 export * from './schemas/notifications';
 export * from './schemas/console';
 export * from './schemas/connectors';
+export * from './schemas/agent';
 export * from './schemas/electrolux';
 export * from './schemas/miele';
 export * from './connectors-sim';

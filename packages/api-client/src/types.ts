@@ -69,6 +69,15 @@ import type {
   MieleStatus,
   MieleAssociateInput,
   MieleDisconnectInput,
+  AgentChatInput,
+  AgentChatResult,
+  AgentMemory,
+  UpdateMemoryInput,
+  UserDocument,
+  UploadDocumentInput,
+  WilineConnectInput,
+  OtherConnectInput,
+  ConnectAck,
 } from '@pilotage/shared';
 
 export interface MachineStatusList {
@@ -172,4 +181,19 @@ export interface PilotageApi {
   mieleComplete(input: MieleCompleteInput): Promise<MieleCompleteResult>;
   mieleAssociate(input: MieleAssociateInput): Promise<MieleStatus>;
   mieleDisconnect(input: MieleDisconnectInput): Promise<MieleStatus>;
+
+  // ── Agentic LavoPilot ──────────────────────────────────────────────────────
+  /** Send the conversation (scope-aware) to LavoPilot and get its reply. */
+  agentChat(input: AgentChatInput): Promise<AgentChatResult>;
+  /** Per-user memory the assistant keeps across conversations. */
+  getMemory(): Promise<AgentMemory>;
+  updateMemory(input: UpdateMemoryInput): Promise<AgentMemory>;
+  /** Documents a user drops in as chat context. */
+  getDocuments(): Promise<UserDocument[]>;
+  uploadDocument(input: UploadDocumentInput): Promise<UserDocument>;
+  deleteDocument(id: string): Promise<{ ok: true }>;
+
+  // ── Simple credential connectors ────────────────────────────────────────────
+  wilineConnect(input: WilineConnectInput): Promise<ConnectAck>;
+  otherConnect(input: OtherConnectInput): Promise<ConnectAck>;
 }

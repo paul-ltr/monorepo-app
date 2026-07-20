@@ -30,7 +30,7 @@ function wrap(node: ReactNode) {
 
 const cases: [string, ReactNode, RegExp][] = [
   ['Machines', <Machines />, /Répartition des états/i],
-  ['Energy', <Energy />, /Périmètre & objectifs/i],
+  ['Energy', <Energy />, /Consommation globale/i],
   ['Maintenance', <Maintenance />, /Plan préventif/i],
   ['Pricing', <Pricing />, /Tarification horaire/i],
   ['Clients', <Clients />, /Programme fidélité/i],

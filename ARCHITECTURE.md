@@ -129,6 +129,29 @@ Feature flags live in `@pilotage/shared` (`MODULE_FLAGS`) and are resolved per
 env + per tenant. The web hides flagged modules; the API returns `501`/stub
 responses for non-MVP endpoints.
 
+### 5.1 Agentic LavoPilot (product direction)
+
+The product is pivoting to an **agent-first** experience built on TanStack +
+Mistral AI:
+
+- **Overview = chat.** The `/` route is a chat with **LavoPilot**, a personified,
+  helpful washing-machine assistant (mascot in `web/src/components/LavoPilot.tsx`).
+  The classic KPI dashboard moves to `/dashboard`.
+- **The whole read API is exposed to the agent.** `AgentController`
+  (`/agent/chat`) grounds the LLM on the read "tools" (dashboard/energy/revenue/…)
+  scoped to the active perimeter — **single site or whole franchise** — via
+  `AgentService`. When no Mistral key is set it falls back to a deterministic,
+  data-backed reply (mirrored by the mock client), so chat always works.
+- **In-chat onboarding.** A reusable `ConnectPilot` component connects a **PDL/PRM
+  (Enedis)** or **PCE (GRDF)** inline from a chat card, and is reused on the
+  Connections page.
+- **Connections** (`/connections`) organises Enedis, GRDF ADICT, Wi-Line,
+  Pennylane and a free-form **"Autre"** card, plus a **per-user document context**
+  drop-zone and **per-user memory** (`/agent/memory`, `/agent/documents`).
+- **Other sections are descriptive-only** for now (no user actions) and simplified
+  — e.g. Énergie drops OPERAT and shows global consumption (gas + electricity) +
+  history. We iterate later.
+
 ## 6. Packages
 
 - `@pilotage/shared` — enums, Zod DTOs, domain types, constants, typed errors,

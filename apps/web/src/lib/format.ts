@@ -19,6 +19,19 @@ export const pct = (n: number, signed = true) => {
 
 export const num = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
 
+/** Human-readable byte size ("184 Ko", "1,2 Mo"). */
+export function fmtBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  const units = ['Ko', 'Mo', 'Go'];
+  let v = bytes / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ${units[i]}`;
+}
+
 /** Relative time in French, coarse ("il y a 12 min", "hier"). */
 export function relativeTime(iso: string, now = Date.now()): string {
   const diffMin = Math.round((now - new Date(iso).getTime()) / 60000);

@@ -45,11 +45,15 @@ function useNav(): { main: NavItem[]; groups: { head: string; items: NavItem[] }
     relation.push({ to: '/reseau', icon: 'network', label: t('nav.reseau') });
   }
   return {
-    main: [{ to: '/', icon: 'dashboard', label: t('nav.overview') }],
+    main: [
+      { to: '/', icon: 'chat', label: t('nav.assistant') },
+      { to: '/connections', icon: 'link', label: t('nav.connections') },
+    ],
     groups: [
       {
         head: t('nav.exploitation'),
         items: [
+          { to: '/dashboard', icon: 'dashboard', label: t('nav.dashboard') },
           { to: '/machines', icon: 'washer', label: t('nav.machines') },
           { to: '/revenue', icon: 'euro', label: t('nav.revenue') },
           { to: '/energy', icon: 'leaf', label: t('nav.energy'), dot: true },

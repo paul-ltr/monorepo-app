@@ -41,7 +41,8 @@ export type IconName =
   | 'info'
   | 'chat'
   | 'menu'
-  | 'shield';
+  | 'shield'
+  | 'link';
 
 const PATHS: Record<IconName, ReactNode> = {
   dashboard: (
@@ -232,6 +233,13 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M3 6h18" />
       <path d="M3 12h18" />
       <path d="M3 18h18" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M9.5 14.5 14.5 9.5" />
+      <path d="M8.5 12 6 14.5a3.5 3.5 0 0 0 5 5L13.5 17" />
+      <path d="M15.5 12 18 9.5a3.5 3.5 0 0 0-5-5L10.5 7" />
     </>
   ),
 };

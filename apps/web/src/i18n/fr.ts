@@ -1,10 +1,13 @@
 export const fr = {
   nav: {
     overview: "Vue d'ensemble",
+    assistant: 'LavoPilot',
+    connections: 'Connexions',
+    dashboard: 'Tableau de bord',
     exploitation: 'Exploitation',
     machines: 'Machines & supervision',
     revenue: 'Recettes & monétique',
-    energy: 'Énergie & conformité',
+    energy: 'Énergie',
     maintenance: 'Maintenance',
     pricing: 'Tarifs & yield',
     relation: 'Relation & réseau',
@@ -42,9 +45,10 @@ export const fr = {
     stale: 'Données anciennes',
   },
   titles: {
-    dashboard: "Vue d'ensemble",
+    dashboard: 'Tableau de bord',
+    connections: 'Connexions',
     machines: 'Machines & supervision',
-    energy: 'Énergie & conformité',
+    energy: 'Énergie',
     revenue: 'Recettes & monétique',
     maintenance: 'Maintenance & GMAO',
     pricing: 'Tarifs & yield',
