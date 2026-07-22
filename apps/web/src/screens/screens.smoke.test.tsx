@@ -32,9 +32,9 @@ const cases: [string, ReactNode, RegExp][] = [
   ['Machines', <Machines />, /Répartition des états/i],
   ['Energy', <Energy />, /Consommation globale/i],
   ['Maintenance', <Maintenance />, /Plan préventif/i],
-  ['Pricing', <Pricing />, /Tarification horaire/i],
+  ['Pricing', <Pricing />, /Grille tarifaire/i],
   ['Clients', <Clients />, /Programme fidélité/i],
-  ['Finances', <Finances />, /Connecteurs comptables/i],
+  ['Finances', <Finances />, /Marge par site/i],
   ['Settings', <Settings />, /Paramètres par site/i],
 ];
 

@@ -27,14 +27,54 @@ const OPENERS = [
   'Connecter un compteur',
 ];
 
+/** Chat history persists per browser so a conversation survives reloads and
+ * navigation. Capped to the last 100 turns; connect cards are dropped from the
+ * stored copy (they're transient onboarding UI, re-offered live if asked again). */
+const HISTORY_KEY = 'lavopilot-chat-history';
+
+function loadHistory(): Msg[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Msg[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(messages: Msg[]): void {
+  try {
+    // Persist without the transient `card` so reloads don't re-mount stale forms.
+    const slim = messages.slice(-100).map(({ card: _card, ...m }) => m);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
+  } catch {
+    /* ignore quota / private-mode failures */
+  }
+}
+
 export function Chat() {
   const api = useApi();
   const { scope, isAll, label } = useScope();
   const session = useSession();
   const firstName = (session.data?.user.fullName ?? '').split(' ')[0] || '';
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>(loadHistory);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Persist every change so history survives reloads and tab switches.
+  useEffect(() => {
+    saveHistory(messages);
+  }, [messages]);
+
+  const clearHistory = () => {
+    setMessages([]);
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
 
   const chatScope: ChatScope = useMemo(
     () =>
@@ -105,6 +145,15 @@ export function Chat() {
           {isAll ? 'Franchise · tous les sites' : label}
         </span>
         <span className="text-fg-subtle">LavoPilot répond selon ce périmètre.</span>
+        {messages.length > 0 && (
+          <button
+            onClick={clearHistory}
+            className="ml-auto flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 font-semibold text-fg-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            <Icon name="plus" size={13} strokeWidth={2.2} />
+            Nouvelle conversation
+          </button>
+        )}
       </div>
 
       {/* Conversation */}
