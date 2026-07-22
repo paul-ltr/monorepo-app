@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -22,6 +22,10 @@ function wrap(node: ReactNode) {
 }
 
 describe('LavoPilot chat', () => {
+  // Chat now persists history to localStorage — isolate it between tests so each
+  // starts from the empty state.
+  beforeEach(() => localStorage.clear());
+
   it('greets on the empty state and answers a revenue question', async () => {
     render(wrap(<Chat />));
     // Empty state greeting.
