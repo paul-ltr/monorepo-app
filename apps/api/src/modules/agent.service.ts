@@ -83,7 +83,7 @@ export class AgentService {
   // ── Chat ─────────────────────────────────────────────────────────────────────
   async chat(ctx: RequestContext, input: AgentChatInput): Promise<AgentChatResult> {
     const deterministic = this.deterministicReply(ctx, input);
-    if (!this.llm.enabled) return deterministic;
+    if (!(await this.llm.isEnabled())) return deterministic;
 
     // Grounded LLM path: hand the scope-relevant KPIs + memory + docs to Mistral.
     const system = this.systemPrompt(ctx, input);

@@ -1,9 +1,21 @@
 # Mistral AI — LLM
 
-**Status:** `stub` — `LlmService` (apps/api) wraps the chat API behind a stable,
-swappable interface and runs in **stub mode** (deterministic canned response,
-no network) until a key is provisioned. Used for dashboard **synthèses IA** (M1/
-M9), energy/anomaly narration (M5), and CRM copy (M8).
+**Status:** `wired` — `LlmService` (apps/api) wraps the chat API behind a stable,
+swappable interface. It **resolves a key automatically** and goes live the moment
+one is present; with no key it falls back to **stub mode** (deterministic canned
+response, no network). Powers the **agentic LavoPilot chat** (`AgentService`),
+dashboard **synthèses IA** (M1/M9), energy/anomaly narration (M5), and CRM copy (M8).
+
+## Key resolution (in order)
+
+1. **`MISTRAL_API_KEY`** env var — local dev fallback (`.env`).
+2. **`MISTRAL_SECRET_ID`** env var — explicit Secrets Manager path override.
+3. **`pilotage/<PILOTAGE_ENV>/mistral`** — the default container created by the
+   security Terraform module; the API Lambda already has `GetSecretValue` on it,
+   so **no infra change is needed** — just set the secret's value.
+
+The secret value may be a **raw key string** or a JSON blob
+(`{"api_key": "…"}` — also accepts `apiKey` / `key`). Fetches are cached ~5 min.
 
 ## Manual actions still required
 
